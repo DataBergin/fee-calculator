@@ -1,0 +1,2 @@
+# No external dependencies needed - using Python stdlib only
+# decimal module is built-in for precise currency math
