@@ -4,7 +4,9 @@ Calculates payment processor fees, taxes, and profit margins
 """
 
 import json
-from decimal import ROUND_HALF_UP, Decimal
+import os
+import sys
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler
 
 # Payment processor fee structures
@@ -21,6 +23,98 @@ PROCESSORS = {
         "in_person": {"percent": Decimal("2.49"), "fixed": Decimal("0.15")},
     },
 }
+
+VALID_TRANSACTION_TYPES = ("online", "in_person")
+
+# Sanity bounds to reject fat-finger / abusive input at the boundary.
+MAX_AMOUNT = Decimal("1000000")
+MAX_UNITS = 1_000_000
+
+
+class ValidationError(ValueError):
+    """Raised when request input fails validation. Carries the offending field."""
+
+    def __init__(self, field, message):
+        self.field = field
+        self.message = message
+        super().__init__(message)
+
+
+def log_event(level, event, **fields):
+    """Emit a single-line JSON log record to stdout for Vercel log capture."""
+    record = {"level": level, "event": event}
+    record.update(fields)
+    print(json.dumps(record), file=sys.stdout, flush=True)
+
+
+def cors_origin():
+    """Allowed CORS origin: the deployed domain in prod, '*' for local dev.
+
+    Set ALLOWED_ORIGIN to the production domain in the Vercel environment.
+    """
+    return os.environ.get("ALLOWED_ORIGIN", "*")
+
+
+def _require_amount(data, field, *, required, allow_zero):
+    """Validate a currency field and return it as a Decimal."""
+    if field not in data or data[field] is None or data[field] == "":
+        if required:
+            raise ValidationError(field, f"{field} is required")
+        return Decimal("0")
+
+    try:
+        value = Decimal(str(data[field]))
+    except (InvalidOperation, ValueError, TypeError):
+        raise ValidationError(field, f"{field} must be a number")
+    if not value.is_finite():
+        raise ValidationError(field, f"{field} must be a finite number")
+    if value < 0 or (value == 0 and not allow_zero):
+        floor = "0 or greater" if allow_zero else "greater than 0"
+        raise ValidationError(field, f"{field} must be {floor}")
+    if value > MAX_AMOUNT:
+        raise ValidationError(field, f"{field} must not exceed {MAX_AMOUNT}")
+    return value
+
+
+def validate_input(data):
+    """Validate request input. Raises ValidationError (with a field) on bad input.
+
+    Runs before calculate_profit so the math layer only ever sees clean values.
+    """
+    if not isinstance(data, dict):
+        raise ValidationError("body", "Request body must be a JSON object")
+
+    _require_amount(data, "item_price", required=True, allow_zero=False)
+    _require_amount(data, "cost_of_goods", required=True, allow_zero=True)
+    _require_amount(data, "shipping_cost", required=False, allow_zero=True)
+
+    if data.get("tax_rate") not in (None, ""):
+        try:
+            tax_rate = Decimal(str(data["tax_rate"]))
+        except (InvalidOperation, ValueError, TypeError):
+            raise ValidationError("tax_rate", "tax_rate must be a number")
+        if not tax_rate.is_finite() or tax_rate < 0 or tax_rate > 100:
+            raise ValidationError("tax_rate", "tax_rate must be between 0 and 100")
+
+    processor = data.get("processor", "stripe")
+    if processor not in PROCESSORS:
+        allowed = ", ".join(sorted(PROCESSORS))
+        raise ValidationError("processor", f"processor must be one of: {allowed}")
+
+    transaction_type = data.get("transaction_type", "online")
+    if transaction_type not in VALID_TRANSACTION_TYPES:
+        allowed = ", ".join(VALID_TRANSACTION_TYPES)
+        raise ValidationError("transaction_type", f"transaction_type must be one of: {allowed}")
+
+    if data.get("monthly_units") not in (None, ""):
+        try:
+            monthly_units = int(data["monthly_units"])
+        except (ValueError, TypeError):
+            raise ValidationError("monthly_units", "monthly_units must be a whole number")
+        if monthly_units < 0:
+            raise ValidationError("monthly_units", "monthly_units must be 0 or greater")
+        if monthly_units > MAX_UNITS:
+            raise ValidationError("monthly_units", f"monthly_units must not exceed {MAX_UNITS}")
 
 
 def calculate_processor_fee(amount: Decimal, processor: str, transaction_type: str) -> dict:
@@ -150,31 +244,56 @@ def calculate_profit(data: dict) -> dict:
 class handler(BaseHTTPRequestHandler):
     """Vercel serverless function handler."""
 
+    def _send_json(self, status, payload):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", cors_origin())
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode())
+
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
         try:
             data = json.loads(body)
+        except json.JSONDecodeError:
+            log_event("warning", "invalid_json")
+            self._send_json(
+                400,
+                {
+                    "error": "invalid_json",
+                    "field": "body",
+                    "message": "Request body must be valid JSON",
+                },
+            )
+            return
+
+        try:
+            validate_input(data)
+        except ValidationError as e:
+            log_event("warning", "validation_error", field=e.field, message=e.message)
+            self._send_json(
+                400, {"error": "validation_error", "field": e.field, "message": e.message}
+            )
+            return
+
+        try:
             result = calculate_profit(data)
+        except Exception as e:  # noqa: BLE001 - last-resort guard, must never leak a 500 stacktrace
+            log_event("error", "calculation_failed", message=str(e))
+            self._send_json(
+                500,
+                {"error": "internal_error", "message": "Could not complete the calculation"},
+            )
+            return
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(result).encode())
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            self.send_response(400)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+        self._send_json(200, result)
 
     def do_OPTIONS(self):
         """Handle CORS preflight."""
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", cors_origin())
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -191,8 +310,4 @@ class handler(BaseHTTPRequestHandler):
                 for key, val in PROCESSORS.items()
             }
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(info).encode())
+        self._send_json(200, info)

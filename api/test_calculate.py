@@ -9,13 +9,15 @@ Run with:  pytest api/
 """
 
 import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 import pytest
 from calculate import (
+    ValidationError,
     calculate_processor_fee,
     calculate_profit,
     calculate_sales_tax,
+    validate_input,
 )
 
 # ---------------------------------------------------------------------------
@@ -264,10 +266,13 @@ def test_monthly_negative_units_treated_as_zero():
 
 
 # ---------------------------------------------------------------------------
-# F. edge / error cases (document current behavior)
+# F. calculate_profit edge cases (it assumes pre-validated input; validate_input
+#    is the boundary guard tested in section H)
 # ---------------------------------------------------------------------------
 
 def test_missing_item_price_raises_key_error():
+    # Reaching calculate_profit without item_price is a programmer error;
+    # the HTTP path is guarded by validate_input (section H).
     with pytest.raises(KeyError):
         calculate_profit({"cost_of_goods": 5.00})
 
@@ -277,26 +282,9 @@ def test_missing_cost_of_goods_raises_key_error():
         calculate_profit({"item_price": 10.00})
 
 
-def test_non_numeric_input_raises_invalid_operation():
-    # FINDING: non-numeric values raise decimal.InvalidOperation, which the HTTP
-    # handler does NOT catch -> currently a 500. To be fixed in API hardening.
-    with pytest.raises(InvalidOperation):
-        calculate_profit({"item_price": "abc", "cost_of_goods": 5.00})
-
-
-def test_negative_item_price_not_validated():
-    # FINDING: no input validation; margin is guarded to 0 but no error is raised.
-    result = calculate_profit({"item_price": -10.00, "cost_of_goods": 5.00})
-    assert result["calculations"]["profit_margin"] == 0
-
-
-def test_negative_cost_of_goods_not_validated():
-    # FINDING: negative COGS inflates profit instead of being rejected.
-    result = calculate_profit({"item_price": 10.00, "cost_of_goods": -5.00})
-    assert result["calculations"]["net_profit"] > 10.00
-
-
 def test_zero_item_price_no_division_error():
+    # The math layer is robust to a zero price (no ZeroDivisionError), even though
+    # validate_input rejects it at the boundary.
     result = calculate_profit({"item_price": 0, "cost_of_goods": 5.00})
     assert result["calculations"]["profit_margin"] == 0
     # only the fixed processor fee applies on a zero charge
@@ -345,3 +333,130 @@ def test_input_echoes_processor_display_name():
         "processor": "toast",
     })
     assert result["input"]["processor"] == "Toast"
+
+
+# ---------------------------------------------------------------------------
+# H. validate_input - boundary validation (returns structured 400s in handler)
+# ---------------------------------------------------------------------------
+
+def test_validate_accepts_minimal_valid_input():
+    # should not raise
+    validate_input({"item_price": 10.00, "cost_of_goods": 5.00})
+
+
+def test_validate_accepts_full_valid_input():
+    validate_input({
+        "item_price": 29.99,
+        "cost_of_goods": 10,
+        "shipping_cost": 5,
+        "tax_rate": 5.5,
+        "processor": "toast",
+        "transaction_type": "in_person",
+        "monthly_units": 100,
+    })
+
+
+def test_validate_error_is_value_error_subclass():
+    # The handler historically caught ValueError; keep that contract.
+    assert issubclass(ValidationError, ValueError)
+
+
+def test_validate_rejects_non_dict_body():
+    with pytest.raises(ValidationError) as exc:
+        validate_input([1, 2, 3])
+    assert exc.value.field == "body"
+
+
+def test_validate_missing_item_price():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+
+
+def test_validate_missing_cost_of_goods():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00})
+    assert exc.value.field == "cost_of_goods"
+
+
+def test_validate_rejects_non_numeric_item_price():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": "abc", "cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+
+
+def test_validate_rejects_zero_item_price():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 0, "cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+
+
+def test_validate_rejects_negative_item_price():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": -10.00, "cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+
+
+def test_validate_rejects_negative_cost_of_goods():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": -5.00})
+    assert exc.value.field == "cost_of_goods"
+
+
+def test_validate_allows_zero_cost_of_goods():
+    validate_input({"item_price": 10.00, "cost_of_goods": 0})
+
+
+def test_validate_rejects_negative_shipping():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "shipping_cost": -1})
+    assert exc.value.field == "shipping_cost"
+
+
+def test_validate_rejects_tax_rate_above_100():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "tax_rate": 150})
+    assert exc.value.field == "tax_rate"
+
+
+def test_validate_rejects_negative_tax_rate():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "tax_rate": -1})
+    assert exc.value.field == "tax_rate"
+
+
+def test_validate_rejects_unknown_processor():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "processor": "venmo"})
+    assert exc.value.field == "processor"
+
+
+def test_validate_rejects_invalid_transaction_type():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "transaction_type": "phone"})
+    assert exc.value.field == "transaction_type"
+
+
+def test_validate_rejects_negative_units():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "monthly_units": -5})
+    assert exc.value.field == "monthly_units"
+
+
+def test_validate_rejects_non_integer_units():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "monthly_units": "lots"})
+    assert exc.value.field == "monthly_units"
+
+
+def test_validate_rejects_amount_over_max():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 5_000_000, "cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+
+
+def test_validation_error_carries_field_and_message():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": -1, "cost_of_goods": 5.00})
+    assert exc.value.field == "item_price"
+    assert isinstance(exc.value.message, str) and exc.value.message
