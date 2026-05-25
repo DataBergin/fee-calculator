@@ -1,6 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Calculator from './components/Calculator'
 import Results from './components/Results'
+import Insights from './components/Insights'
+import OnboardingModal from './components/OnboardingModal'
+import { formatCurrency } from './format'
+import { historyToCsv, calculationToCsv, downloadCsv } from './csv'
+import { darken } from './color'
+import { loadSettings, saveSettings, resolveTheme, initialsFor } from './settings'
 
 function App() {
   const [results, setResults] = useState(null)
@@ -8,7 +14,50 @@ function App() {
   const [error, setError] = useState(null)
   const [history, setHistory] = useState([])
   const [activeTab, setActiveTab] = useState('calculator')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth > 768
+  )
+  const [searchQuery, setSearchQuery] = useState('')
+  const [settings, setSettings] = useState(loadSettings)
+  const [draft, setDraft] = useState(settings)
+  const [savedFlash, setSavedFlash] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(() => !settings.onboarded)
+
+  const currency = settings.currency
+
+  // Apply the resolved theme to the document and keep it in sync with the OS
+  // setting while the preference is 'system'.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolveTheme(settings.theme))
+    if (settings.theme !== 'system' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () =>
+      document.documentElement.setAttribute('data-theme', mq.matches ? 'dark' : 'light')
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [settings.theme])
+
+  // White-label primary color.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--primary', settings.primaryColor)
+    root.style.setProperty('--primary-dark', darken(settings.primaryColor, 0.18))
+  }, [settings.primaryColor])
+
+  useEffect(() => {
+    document.title = `${settings.businessName} — Fee & Profit Calculator`
+  }, [settings.businessName])
+
+  const completeOnboarding = (values) => {
+    const merged = { ...settings, ...values, onboarded: true }
+    setSettings(merged)
+    setDraft(merged)
+    saveSettings(merged)
+    setShowOnboarding(false)
+  }
+
+  const exportHistoryCsv = () => downloadCsv('fee-calculator-history.csv', historyToCsv(history))
+  const exportCalculationCsv = () => downloadCsv('fee-calculation.csv', calculationToCsv(results))
 
   const calculateFees = async (formData) => {
     setLoading(true)
@@ -21,21 +70,30 @@ function App() {
         body: JSON.stringify(formData),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Calculation failed')
+        throw new Error(data.message || 'Calculation failed')
       }
 
-      const data = await response.json()
       setResults(data)
 
-      // Add to history
-      setHistory(prev => [{
-        id: Date.now(),
-        timestamp: new Date().toLocaleString(),
-        data: data
-      }, ...prev].slice(0, 10))
+      setHistory((prev) =>
+        [
+          {
+            id: Date.now(),
+            timestamp: new Date().toLocaleString(),
+            data: data,
+          },
+          ...prev,
+        ].slice(0, 10)
+      )
     } catch (err) {
-      setError(err.message)
+      const message =
+        err.name === 'TypeError'
+          ? 'Could not reach the calculator service. Check your connection and try again.'
+          : err.message
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -50,25 +108,60 @@ function App() {
     setHistory([])
   }
 
+  const updateDraft = (key, value) => {
+    setDraft((d) => ({ ...d, [key]: value }))
+    setSavedFlash(false)
+  }
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => updateDraft('logo', reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveSettings = () => {
+    setSettings(draft)
+    saveSettings(draft)
+    setSavedFlash(true)
+  }
+
+  const filteredHistory = history.filter((item) => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return true
+    return (
+      item.data.input.processor.toLowerCase().includes(q) ||
+      String(item.data.input.item_price).includes(q) ||
+      item.timestamp.toLowerCase().includes(q)
+    )
+  })
+
   return (
     <div className="dashboard">
+      {showOnboarding && <OnboardingModal initial={settings} onComplete={completeOnboarding} />}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
           <div className="logo">
             <div className="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
+              {settings.logo ? (
+                <img src={settings.logo} alt={`${settings.businessName} logo`} />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
             </div>
             {sidebarOpen && <span>FeeCalc</span>}
           </div>
           <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               {sidebarOpen ? (
-                <path d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+                <path d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               ) : (
-                <path d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+                <path d="M13 5l7 7-7 7M5 5l7 7-7 7" />
               )}
             </svg>
           </button>
@@ -80,7 +173,7 @@ function App() {
             onClick={() => setActiveTab('calculator')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+              <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
             {sidebarOpen && <span>Calculator</span>}
           </button>
@@ -90,7 +183,7 @@ function App() {
             onClick={() => setActiveTab('history')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             {sidebarOpen && <span>History</span>}
             {history.length > 0 && <span className="badge">{history.length}</span>}
@@ -101,7 +194,7 @@ function App() {
             onClick={() => setActiveTab('insights')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             {sidebarOpen && <span>Insights</span>}
           </button>
@@ -111,8 +204,8 @@ function App() {
             onClick={() => setActiveTab('settings')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             {sidebarOpen && <span>Settings</span>}
           </button>
@@ -121,9 +214,9 @@ function App() {
         <div className="sidebar-footer">
           {sidebarOpen && (
             <div className="user-info">
-              <div className="avatar">JB</div>
+              <div className="avatar">{initialsFor(settings.businessName)}</div>
               <div className="user-details">
-                <span className="user-name">Jack's Cafe</span>
+                <span className="user-name">{settings.businessName}</span>
                 <span className="user-plan">Free Plan</span>
               </div>
             </div>
@@ -136,6 +229,15 @@ function App() {
         {/* Top Bar */}
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              className="topbar-menu"
+              aria-label="Toggle menu"
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <h1>
               {activeTab === 'calculator' && 'Fee Calculator'}
               {activeTab === 'history' && 'Calculation History'}
@@ -146,15 +248,19 @@ function App() {
           <div className="topbar-right">
             <div className="search-box">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <input type="text" placeholder="Search..." />
+              <input
+                type="text"
+                placeholder="Search history..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  if (e.target.value.trim()) setActiveTab('history')
+                }}
+              />
             </div>
-            <button className="icon-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-              </svg>
-            </button>
+            <span className="topbar-business">{settings.businessName}</span>
           </div>
         </header>
 
@@ -162,12 +268,23 @@ function App() {
         <div className="content-area">
           {activeTab === 'calculator' && (
             <div className="calculator-view">
+              {/* Landing hero (shown until the first calculation) */}
+              {!results && (
+                <div className="hero">
+                  <h2>See your real profit per sale</h2>
+                  <p>
+                    Know exactly what you keep after card fees, sales tax, and costs. Built for
+                    Maine small businesses.
+                  </p>
+                </div>
+              )}
+
               {/* Quick Stats */}
               <div className="quick-stats">
                 <div className="stat-card">
                   <div className="stat-icon blue">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                      <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -178,12 +295,12 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-icon green">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div className="stat-info">
                     <span className="stat-value">
-                      {results ? `$${results.calculations.net_profit.toFixed(2)}` : '--'}
+                      {results ? formatCurrency(results.calculations.net_profit, currency) : '--'}
                     </span>
                     <span className="stat-label">Last Profit</span>
                   </div>
@@ -191,7 +308,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-icon purple">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                      <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -204,12 +321,14 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-icon orange">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                      <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
                   </div>
                   <div className="stat-info">
                     <span className="stat-value">
-                      {results ? `$${results.calculations.processor_fees.total_fee.toFixed(2)}` : '--'}
+                      {results
+                        ? formatCurrency(results.calculations.processor_fees.total_fee, currency)
+                        : '--'}
                     </span>
                     <span className="stat-label">Last Fee</span>
                   </div>
@@ -224,18 +343,24 @@ function App() {
                       <h2>New Calculation</h2>
                       <span className="card-badge">Quick Calc</span>
                     </div>
-                    <Calculator onCalculate={calculateFees} loading={loading} />
+                    <Calculator
+                      onCalculate={calculateFees}
+                      loading={loading}
+                      defaultTaxRate={settings.defaultTaxRate}
+                      defaultProcessor={settings.defaultProcessor}
+                    />
                   </div>
 
-                  {error && (
-                    <div className="error-message">
-                      {error}
-                    </div>
-                  )}
+                  {error && <div className="error-message">{error}</div>}
 
                   {results && (
                     <div className="card">
-                      <Results data={results} />
+                      <div className="results-toolbar">
+                        <button className="btn-secondary" onClick={exportCalculationCsv}>
+                          Export CSV
+                        </button>
+                      </div>
+                      <Results data={results} currency={currency} />
                     </div>
                   )}
                 </div>
@@ -257,16 +382,22 @@ function App() {
                             onClick={() => loadFromHistory(item)}
                           >
                             <div className="activity-icon">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              >
+                                <path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                               </svg>
                             </div>
                             <div className="activity-details">
                               <span className="activity-title">
-                                ${item.data.input.item_price.toFixed(2)} sale
+                                {formatCurrency(item.data.input.item_price, currency)} sale
                               </span>
                               <span className="activity-meta">
-                                Profit: ${item.data.calculations.net_profit.toFixed(2)}
+                                Profit:{' '}
+                                {formatCurrency(item.data.calculations.net_profit, currency)}
                               </span>
                             </div>
                             <span className="activity-time">{item.timestamp.split(',')[1]}</span>
@@ -307,20 +438,36 @@ function App() {
                 <div className="card-header">
                   <h2>Calculation History</h2>
                   {history.length > 0 && (
-                    <button className="btn-secondary" onClick={clearHistory}>
-                      Clear All
-                    </button>
+                    <div className="header-actions">
+                      <button className="btn-secondary" onClick={exportHistoryCsv}>
+                        Export CSV
+                      </button>
+                      <button className="btn-secondary" onClick={clearHistory}>
+                        Clear All
+                      </button>
+                    </div>
                   )}
                 </div>
                 {history.length === 0 ? (
                   <div className="empty-state-large">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <h3>No History Yet</h3>
                     <p>Your calculations will appear here</p>
                     <button className="btn-primary" onClick={() => setActiveTab('calculator')}>
                       Start Calculating
+                    </button>
+                  </div>
+                ) : filteredHistory.length === 0 ? (
+                  <div className="empty-state-large">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <h3>No matches</h3>
+                    <p>No calculations match &ldquo;{searchQuery}&rdquo;.</p>
+                    <button className="btn-secondary" onClick={() => setSearchQuery('')}>
+                      Clear search
                     </button>
                   </div>
                 ) : (
@@ -338,21 +485,28 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {history.map((item) => (
+                        {filteredHistory.map((item) => (
                           <tr key={item.id}>
                             <td>{item.timestamp}</td>
-                            <td>${item.data.input.item_price.toFixed(2)}</td>
+                            <td>{formatCurrency(item.data.input.item_price, currency)}</td>
                             <td>{item.data.input.processor}</td>
-                            <td className="negative">-${item.data.calculations.processor_fees.total_fee.toFixed(2)}</td>
-                            <td className={item.data.calculations.net_profit >= 0 ? 'positive' : 'negative'}>
-                              ${item.data.calculations.net_profit.toFixed(2)}
+                            <td className="negative">
+                              -{' '}
+                              {formatCurrency(
+                                item.data.calculations.processor_fees.total_fee,
+                                currency
+                              )}
+                            </td>
+                            <td
+                              className={
+                                item.data.calculations.net_profit >= 0 ? 'positive' : 'negative'
+                              }
+                            >
+                              {formatCurrency(item.data.calculations.net_profit, currency)}
                             </td>
                             <td>{item.data.calculations.profit_margin.toFixed(1)}%</td>
                             <td>
-                              <button
-                                className="btn-icon"
-                                onClick={() => loadFromHistory(item)}
-                              >
+                              <button className="btn-icon" onClick={() => loadFromHistory(item)}>
                                 View
                               </button>
                             </td>
@@ -368,16 +522,11 @@ function App() {
 
           {activeTab === 'insights' && (
             <div className="insights-view">
-              <div className="card">
-                <div className="empty-state-large">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                  </svg>
-                  <h3>Business Insights Coming Soon</h3>
-                  <p>Track trends, compare processors, and optimize your pricing.</p>
-                  <span className="coming-soon-badge">Coming Soon</span>
-                </div>
-              </div>
+              <Insights
+                history={history}
+                currency={currency}
+                onStart={() => setActiveTab('calculator')}
+              />
             </div>
           )}
 
@@ -386,36 +535,111 @@ function App() {
               <div className="card">
                 <div className="card-header">
                   <h2>Settings</h2>
+                  {savedFlash && <span className="card-badge saved-flash">Saved</span>}
                 </div>
                 <div className="settings-section">
                   <h3>Business Profile</h3>
                   <div className="settings-group">
-                    <label>Business Name</label>
-                    <input type="text" placeholder="Your Business Name" defaultValue="Jack's Cafe" />
+                    <label htmlFor="set-business-name">Business Name</label>
+                    <input
+                      id="set-business-name"
+                      type="text"
+                      placeholder="Your Business Name"
+                      value={draft.businessName}
+                      onChange={(e) => updateDraft('businessName', e.target.value)}
+                    />
                   </div>
                   <div className="settings-group">
-                    <label>Default Tax Rate (%)</label>
-                    <input type="number" placeholder="5.5" defaultValue="5.5" />
+                    <label htmlFor="set-tax-rate">Default Tax Rate (%)</label>
+                    <input
+                      id="set-tax-rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="5.5"
+                      value={draft.defaultTaxRate}
+                      onChange={(e) => updateDraft('defaultTaxRate', e.target.value)}
+                    />
                   </div>
                   <div className="settings-group">
-                    <label>Preferred Processor</label>
-                    <select defaultValue="stripe">
+                    <label htmlFor="set-processor">Preferred Processor</label>
+                    <select
+                      id="set-processor"
+                      value={draft.defaultProcessor}
+                      onChange={(e) => updateDraft('defaultProcessor', e.target.value)}
+                    >
                       <option value="stripe">Stripe</option>
                       <option value="toast">Toast</option>
+                      <option value="square">Square</option>
+                      <option value="clover">Clover</option>
+                    </select>
+                  </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-currency">Currency</label>
+                    <select
+                      id="set-currency"
+                      value={draft.currency}
+                      onChange={(e) => updateDraft('currency', e.target.value)}
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="CAD">CAD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
                     </select>
                   </div>
                 </div>
                 <div className="settings-section">
-                  <h3>Appearance</h3>
+                  <h3>Branding &amp; Appearance</h3>
                   <div className="settings-group">
-                    <label>Theme</label>
-                    <select defaultValue="light">
+                    <label htmlFor="set-theme">Theme</label>
+                    <select
+                      id="set-theme"
+                      value={draft.theme}
+                      onChange={(e) => updateDraft('theme', e.target.value)}
+                    >
+                      <option value="system">System</option>
                       <option value="light">Light</option>
-                      <option value="dark">Dark (Coming Soon)</option>
+                      <option value="dark">Dark</option>
                     </select>
                   </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-color">Primary Color</label>
+                    <input
+                      id="set-color"
+                      type="color"
+                      className="color-input"
+                      value={draft.primaryColor}
+                      onChange={(e) => updateDraft('primaryColor', e.target.value)}
+                    />
+                  </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-logo">Logo</label>
+                    <div className="logo-upload">
+                      {draft.logo && (
+                        <img className="logo-preview" src={draft.logo} alt="Logo preview" />
+                      )}
+                      <input
+                        id="set-logo"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                      />
+                      {draft.logo && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => updateDraft('logo', '')}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <button className="btn-primary">Save Changes</button>
+                <button className="btn-primary" onClick={handleSaveSettings}>
+                  Save Changes
+                </button>
               </div>
             </div>
           )}

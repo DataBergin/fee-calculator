@@ -1,116 +1,132 @@
 # Fee & Profit Calculator
 
-A web app that helps small business owners calculate their true profit per sale after payment processor fees, shipping, and taxes.
+**See your real profit per sale after card fees, sales tax, and costs.** Built
+for Maine small businesses — cafes, restaurants, retail, food trucks, and salons.
+
+Most owners price off gut feel and don't realize how much each sale actually
+keeps once the payment processor, sales tax, and cost of goods come out. This
+tool shows the true number in seconds, plus your break-even price and monthly
+projections.
+
+<!-- Add a screenshot of the calculator here, e.g. docs/screenshot.png -->
+
+_Screenshot: run `npm run dev` and capture the calculator view._
+
+## Who it's for
+
+Small business owners who take card payments and want to price with confidence —
+and the operator (you) offering this as a white-labeled service per client.
+
+## 60-second demo
+
+1. Open the app — a one-question onboarding asks your business name, default
+   processor, and tax rate.
+2. On the **Calculator**, enter a selling price and cost of goods (e.g. $29.99
+   and $10).
+3. Pick a Maine tax preset (5.5% general, 8% prepared food, 9% lodging) and your
+   processor (Stripe, Toast, Square, or Clover), online or in-person.
+4. Hit **Calculate Profit** — see net profit per sale, margin %, the processor
+   fee, and your break-even price, with a breakdown chart.
+5. Add monthly units for a projection, or a tip to see pass-through handling.
+6. Every calculation is saved to **History** (exportable as CSV) and rolled up
+   in **Insights** (average margin, total fees, best/worst items, trends).
 
 ## Features
 
-- **Payment Processor Support**: Stripe and Toast with accurate fee structures
-- **Transaction Types**: Online vs in-person rates
-- **Complete Breakdown**: See exactly where your money goes
-- **Visual Charts**: Pie chart of cost breakdown, bar chart for monthly projections
-- **Break-Even Analysis**: Know your minimum viable price
-- **Monthly Projections**: Forecast your profits at scale
+- **Processors**: Stripe, Toast, Square, Clover — online vs in-person rates
+  (see [PROCESSORS.md](./PROCESSORS.md) for sources and how to update).
+- **Maine tax presets** plus any custom rate.
+- **Tip handling**: pass-through tips don't count against your margin.
+- **Trustworthy math**: all calculations use exact decimal arithmetic and are
+  covered by automated tests.
+- **History + CSV export**, **Insights** charts, **break-even** and **monthly
+  projections**.
+- **White-label**: set business name, logo, primary color, currency, and theme
+  (light/dark) — settings persist in the browser.
 
-## Tech Stack
+## Customizing per client
 
-- **Frontend**: React + Vite
-- **Backend**: Python (Vercel Serverless Functions)
-- **Charts**: Recharts
-- **Deployment**: Vercel
+Everything a client sees is configurable in **Settings** (persisted to the
+browser via `localStorage`): business name, logo, primary color, default
+processor, default tax rate, currency, and theme. To change the built-in
+processor rates, edit `PROCESSORS` in `api/calculate.py` and keep
+[PROCESSORS.md](./PROCESSORS.md) in sync.
 
-## Getting Started
+## Tech stack
 
-### Prerequisites
+- **Frontend**: React + Vite, Recharts
+- **Backend**: Python standard library (Vercel serverless functions) — no
+  runtime dependencies
+- **Tooling**: Vitest + React Testing Library, pytest, ESLint, Prettier, ruff,
+  GitHub Actions CI
 
-- Node.js 18+
-- Python 3.9+
+## Local development
 
-### Local Development
+Prerequisites: Node.js 18+, Python 3.9+.
 
-1. Install dependencies:
 ```bash
 npm install
+npm run dev          # frontend at http://localhost:5173
+vercel dev           # API at http://localhost:3001 (npm i -g vercel)
 ```
 
-2. Start the development server:
+### Tests & checks
+
 ```bash
-npm run dev
+npm test                          # frontend (Vitest)
+npm run lint && npm run format:check
+pip install -r api/requirements-dev.txt
+pytest api/                       # API (pytest)
+ruff check api/
 ```
 
-3. For the API (in a separate terminal), you can use Vercel CLI:
-```bash
-npm i -g vercel
-vercel dev
-```
+CI runs all of the above on every push and pull request.
 
-Or run the Python API directly for testing.
+## Deploy to Vercel
 
-### Deploy to Vercel
+1. `npm i -g vercel`
+2. `vercel` (first run links/creates the project), then `vercel --prod`.
+3. Add your custom domain in the Vercel dashboard (HTTPS is automatic).
+4. **Set `ALLOWED_ORIGIN`** in the project's Environment Variables to your
+   production domain (e.g. `https://yourdomain.com`). The API restricts CORS to
+   this origin in production and falls back to `*` only for local dev.
+5. (Optional) Enable **Vercel Web Analytics** from the dashboard.
 
-1. Install Vercel CLI:
-```bash
-npm i -g vercel
-```
+## API
 
-2. Deploy:
-```bash
-vercel
-```
+### `POST /api/calculate`
 
-## API Endpoints
-
-### POST /api/calculate
-
-Calculate profit breakdown for a sale.
-
-**Request Body:**
 ```json
 {
   "item_price": 29.99,
-  "cost_of_goods": 10.00,
-  "shipping_cost": 5.00,
+  "cost_of_goods": 10.0,
+  "shipping_cost": 5.0,
   "tax_rate": 5.5,
   "processor": "stripe",
   "transaction_type": "online",
-  "monthly_units": 100
+  "monthly_units": 100,
+  "tip_amount": 0,
+  "tip_passthrough": true
 }
 ```
 
-**Response:**
-```json
-{
-  "input": { ... },
-  "calculations": {
-    "sales_tax": 1.65,
-    "total_charged": 31.64,
-    "processor_fees": {
-      "percent_rate": 2.9,
-      "fixed_rate": 0.30,
-      "total_fee": 1.22
-    },
-    "net_profit": 13.77,
-    "profit_margin": 45.91,
-    "break_even_price": 15.77
-  },
-  "monthly": {
-    "units": 100,
-    "revenue": 2999.00,
-    "costs": 1622.00,
-    "profit": 1377.00
-  },
-  "fee_breakdown": { ... }
-}
-```
+Returns `input`, `calculations` (sales tax, total charged, processor fees, net
+profit, margin, break-even), `monthly`, and `fee_breakdown`. Invalid input
+returns a `400` with `{ error, field, message }`.
 
-### GET /api/calculate
+### `GET /api/calculate`
 
 Returns supported processors and their fee structures.
 
-## Monetization Ideas
+### `GET /api/health`
 
-1. **One-off sales**: $10-30 for customized calculators for local businesses
-2. **Monthly subscriptions**: $5/month for saved scenarios and exports
-3. **Freelance embedding**: $50+ to embed on client websites
+Returns `{ "status": "ok" }` for uptime checks.
+
+## Pricing model (placeholder)
+
+- One-off: setup a customized/white-labeled calculator for a local business.
+- Subscription: hosted, branded instance with saved settings and exports.
+- _Finalize tiers with the first few pilot customers._
 
 ## License
 

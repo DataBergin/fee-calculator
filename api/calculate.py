@@ -3,9 +3,11 @@ Fee Calculator API - Serverless Python function for Vercel
 Calculates payment processor fees, taxes, and profit margins
 """
 
-from http.server import BaseHTTPRequestHandler
-from decimal import Decimal, ROUND_HALF_UP
 import json
+import os
+import sys
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from http.server import BaseHTTPRequestHandler
 
 # Payment processor fee structures
 PROCESSORS = {
@@ -20,7 +22,112 @@ PROCESSORS = {
         "online": {"percent": Decimal("2.99"), "fixed": Decimal("0.15")},
         "in_person": {"percent": Decimal("2.49"), "fixed": Decimal("0.15")},
     },
+    "square": {
+        "name": "Square",
+        # Square free plan (2026); see PROCESSORS.md
+        "online": {"percent": Decimal("3.3"), "fixed": Decimal("0.30")},
+        "in_person": {"percent": Decimal("2.6"), "fixed": Decimal("0.15")},
+    },
+    "clover": {
+        "name": "Clover",
+        # Clover basic tier (2026); see PROCESSORS.md
+        "online": {"percent": Decimal("3.5"), "fixed": Decimal("0.10")},
+        "in_person": {"percent": Decimal("2.6"), "fixed": Decimal("0.10")},
+    },
 }
+
+VALID_TRANSACTION_TYPES = ("online", "in_person")
+
+# Sanity bounds to reject fat-finger / abusive input at the boundary.
+MAX_AMOUNT = Decimal("1000000")
+MAX_UNITS = 1_000_000
+
+
+class ValidationError(ValueError):
+    """Raised when request input fails validation. Carries the offending field."""
+
+    def __init__(self, field, message):
+        self.field = field
+        self.message = message
+        super().__init__(message)
+
+
+def log_event(level, event, **fields):
+    """Emit a single-line JSON log record to stdout for Vercel log capture."""
+    record = {"level": level, "event": event}
+    record.update(fields)
+    print(json.dumps(record), file=sys.stdout, flush=True)
+
+
+def cors_origin():
+    """Allowed CORS origin: the deployed domain in prod, '*' for local dev.
+
+    Set ALLOWED_ORIGIN to the production domain in the Vercel environment.
+    """
+    return os.environ.get("ALLOWED_ORIGIN", "*")
+
+
+def _require_amount(data, field, *, required, allow_zero):
+    """Validate a currency field and return it as a Decimal."""
+    if field not in data or data[field] is None or data[field] == "":
+        if required:
+            raise ValidationError(field, f"{field} is required")
+        return Decimal("0")
+
+    try:
+        value = Decimal(str(data[field]))
+    except (InvalidOperation, ValueError, TypeError):
+        raise ValidationError(field, f"{field} must be a number")
+    if not value.is_finite():
+        raise ValidationError(field, f"{field} must be a finite number")
+    if value < 0 or (value == 0 and not allow_zero):
+        floor = "0 or greater" if allow_zero else "greater than 0"
+        raise ValidationError(field, f"{field} must be {floor}")
+    if value > MAX_AMOUNT:
+        raise ValidationError(field, f"{field} must not exceed {MAX_AMOUNT}")
+    return value
+
+
+def validate_input(data):
+    """Validate request input. Raises ValidationError (with a field) on bad input.
+
+    Runs before calculate_profit so the math layer only ever sees clean values.
+    """
+    if not isinstance(data, dict):
+        raise ValidationError("body", "Request body must be a JSON object")
+
+    _require_amount(data, "item_price", required=True, allow_zero=False)
+    _require_amount(data, "cost_of_goods", required=True, allow_zero=True)
+    _require_amount(data, "shipping_cost", required=False, allow_zero=True)
+    _require_amount(data, "tip_amount", required=False, allow_zero=True)
+
+    if data.get("tax_rate") not in (None, ""):
+        try:
+            tax_rate = Decimal(str(data["tax_rate"]))
+        except (InvalidOperation, ValueError, TypeError):
+            raise ValidationError("tax_rate", "tax_rate must be a number")
+        if not tax_rate.is_finite() or tax_rate < 0 or tax_rate > 100:
+            raise ValidationError("tax_rate", "tax_rate must be between 0 and 100")
+
+    processor = data.get("processor", "stripe")
+    if processor not in PROCESSORS:
+        allowed = ", ".join(sorted(PROCESSORS))
+        raise ValidationError("processor", f"processor must be one of: {allowed}")
+
+    transaction_type = data.get("transaction_type", "online")
+    if transaction_type not in VALID_TRANSACTION_TYPES:
+        allowed = ", ".join(VALID_TRANSACTION_TYPES)
+        raise ValidationError("transaction_type", f"transaction_type must be one of: {allowed}")
+
+    if data.get("monthly_units") not in (None, ""):
+        try:
+            monthly_units = int(data["monthly_units"])
+        except (ValueError, TypeError):
+            raise ValidationError("monthly_units", "monthly_units must be a whole number")
+        if monthly_units < 0:
+            raise ValidationError("monthly_units", "monthly_units must be 0 or greater")
+        if monthly_units > MAX_UNITS:
+            raise ValidationError("monthly_units", f"monthly_units must not exceed {MAX_UNITS}")
 
 
 def calculate_processor_fee(amount: Decimal, processor: str, transaction_type: str) -> dict:
@@ -72,17 +179,23 @@ def calculate_profit(data: dict) -> dict:
     processor = data.get("processor", "stripe")
     transaction_type = data.get("transaction_type", "online")
     monthly_units = int(data.get("monthly_units", 0))
+    tip_amount = Decimal(str(data.get("tip_amount", 0)))
+    # Pass-through tips are collected from the customer and paid out to staff,
+    # so they do not count toward the business's margin (only the processor fee
+    # charged on the tip is a cost). When disabled, the tip is kept as revenue.
+    tip_passthrough = bool(data.get("tip_passthrough", True))
 
     # Calculate components
     sales_tax = calculate_sales_tax(item_price, tax_rate)
-    total_with_tax = item_price + sales_tax
+    # The customer is charged price + tax + tip; the processor fee applies to all.
+    total_with_tax = item_price + sales_tax + tip_amount
 
-    # Processor fee is calculated on total charged (including tax)
+    # Processor fee is calculated on total charged (including tax and tip)
     processor_fees = calculate_processor_fee(total_with_tax, processor, transaction_type)
     processor_fee = Decimal(str(processor_fees["total_fee"]))
 
     # Calculate net and profit
-    gross_revenue = item_price  # What you "earn" before costs
+    gross_revenue = item_price if tip_passthrough else item_price + tip_amount
     total_costs = cost_of_goods + shipping_cost + processor_fee
     net_profit = gross_revenue - total_costs
 
@@ -127,6 +240,8 @@ def calculate_profit(data: dict) -> dict:
             "tax_rate": float(tax_rate),
             "processor": PROCESSORS[processor]["name"],
             "transaction_type": transaction_type,
+            "tip_amount": float(tip_amount),
+            "tip_passthrough": tip_passthrough,
         },
         "calculations": {
             "sales_tax": float(sales_tax),
@@ -150,31 +265,56 @@ def calculate_profit(data: dict) -> dict:
 class handler(BaseHTTPRequestHandler):
     """Vercel serverless function handler."""
 
+    def _send_json(self, status, payload):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", cors_origin())
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode())
+
     def do_POST(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
         try:
             data = json.loads(body)
+        except json.JSONDecodeError:
+            log_event("warning", "invalid_json")
+            self._send_json(
+                400,
+                {
+                    "error": "invalid_json",
+                    "field": "body",
+                    "message": "Request body must be valid JSON",
+                },
+            )
+            return
+
+        try:
+            validate_input(data)
+        except ValidationError as e:
+            log_event("warning", "validation_error", field=e.field, message=e.message)
+            self._send_json(
+                400, {"error": "validation_error", "field": e.field, "message": e.message}
+            )
+            return
+
+        try:
             result = calculate_profit(data)
+        except Exception as e:  # noqa: BLE001 - last-resort guard, must never leak a 500 stacktrace
+            log_event("error", "calculation_failed", message=str(e))
+            self._send_json(
+                500,
+                {"error": "internal_error", "message": "Could not complete the calculation"},
+            )
+            return
 
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(result).encode())
-
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            self.send_response(400)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": str(e)}).encode())
+        self._send_json(200, result)
 
     def do_OPTIONS(self):
         """Handle CORS preflight."""
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", cors_origin())
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -191,8 +331,4 @@ class handler(BaseHTTPRequestHandler):
                 for key, val in PROCESSORS.items()
             }
         }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(json.dumps(info).encode())
+        self._send_json(200, info)

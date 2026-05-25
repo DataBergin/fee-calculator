@@ -1,15 +1,23 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts'
+
+import { formatCurrency as fmt } from '../format'
 
 const COLORS = ['#ef4444', '#f97316', '#8b5cf6', '#22c55e']
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
-}
-
-function Results({ data }) {
+function Results({ data, currency = 'USD' }) {
+  const formatCurrency = (amount) => fmt(amount, currency)
   const { input, calculations, monthly, fee_breakdown } = data
 
   // Prepare pie chart data
@@ -21,11 +29,14 @@ function Results({ data }) {
   ].filter((item) => item.value > 0)
 
   // Monthly projection bar data
-  const monthlyData = monthly.units > 0 ? [
-    { name: 'Revenue', amount: monthly.revenue },
-    { name: 'Costs', amount: monthly.costs },
-    { name: 'Profit', amount: monthly.profit },
-  ] : []
+  const monthlyData =
+    monthly.units > 0
+      ? [
+          { name: 'Revenue', amount: monthly.revenue },
+          { name: 'Costs', amount: monthly.costs },
+          { name: 'Profit', amount: monthly.profit },
+        ]
+      : []
 
   const isProfit = calculations.net_profit >= 0
 
@@ -33,7 +44,9 @@ function Results({ data }) {
     <div className="results">
       <div className="results-header">
         <h2>Profit Breakdown</h2>
-        <p>For a {formatCurrency(input.item_price)} sale via {input.processor}</p>
+        <p>
+          For a {formatCurrency(input.item_price)} sale via {input.processor}
+        </p>
       </div>
 
       <div className="results-grid">
@@ -43,9 +56,7 @@ function Results({ data }) {
           <span className={`metric-value ${isProfit ? 'positive' : 'negative'}`}>
             {formatCurrency(calculations.net_profit)}
           </span>
-          <span className="metric-sub">
-            {calculations.profit_margin.toFixed(1)}% margin
-          </span>
+          <span className="metric-sub">{calculations.profit_margin.toFixed(1)}% margin</span>
         </div>
 
         <div className="metric-card">
@@ -60,7 +71,8 @@ function Results({ data }) {
             {formatCurrency(calculations.processor_fees.total_fee)}
           </span>
           <span className="metric-sub">
-            {calculations.processor_fees.percent_rate}% + {formatCurrency(calculations.processor_fees.fixed_rate)}
+            {calculations.processor_fees.percent_rate}% +{' '}
+            {formatCurrency(calculations.processor_fees.fixed_rate)}
           </span>
         </div>
 
@@ -145,6 +157,12 @@ function Results({ data }) {
               <td>Sales Tax ({input.tax_rate}%)</td>
               <td>+ {formatCurrency(calculations.sales_tax)}</td>
             </tr>
+            {input.tip_amount > 0 && (
+              <tr>
+                <td>Tip {input.tip_passthrough ? '(pass-through)' : '(kept)'}</td>
+                <td>+ {formatCurrency(input.tip_amount)}</td>
+              </tr>
+            )}
             <tr className="subtotal">
               <td>Customer Pays</td>
               <td>{formatCurrency(calculations.total_charged)}</td>
@@ -158,7 +176,10 @@ function Results({ data }) {
               <td>- {formatCurrency(input.shipping_cost)}</td>
             </tr>
             <tr>
-              <td>{input.processor} Fee ({calculations.processor_fees.percent_rate}% + {formatCurrency(calculations.processor_fees.fixed_rate)})</td>
+              <td>
+                {input.processor} Fee ({calculations.processor_fees.percent_rate}% +{' '}
+                {formatCurrency(calculations.processor_fees.fixed_rate)})
+              </td>
               <td>- {formatCurrency(calculations.processor_fees.total_fee)}</td>
             </tr>
             <tr className="total">
@@ -174,15 +195,15 @@ function Results({ data }) {
       {/* Tips */}
       {!isProfit && (
         <div className="tip warning">
-          <strong>Warning:</strong> You're losing money on this sale!
-          Consider raising your price to at least {formatCurrency(calculations.break_even_price)} to break even.
+          <strong>Warning:</strong> You&apos;re losing money on this sale! Consider raising your
+          price to at least {formatCurrency(calculations.break_even_price)} to break even.
         </div>
       )}
 
       {isProfit && calculations.profit_margin < 20 && (
         <div className="tip info">
-          <strong>Tip:</strong> Your profit margin is below 20%.
-          To achieve a 30% margin, consider pricing at {formatCurrency(input.cost_of_goods / 0.7 + input.shipping_cost)}.
+          <strong>Tip:</strong> Your profit margin is below 20%. To achieve a 30% margin, consider
+          pricing at {formatCurrency(input.cost_of_goods / 0.7 + input.shipping_cost)}.
         </div>
       )}
     </div>
