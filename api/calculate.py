@@ -3,9 +3,9 @@ Fee Calculator API - Serverless Python function for Vercel
 Calculates payment processor fees, taxes, and profit margins
 """
 
-from http.server import BaseHTTPRequestHandler
-from decimal import Decimal, ROUND_HALF_UP
 import json
+from decimal import ROUND_HALF_UP, Decimal
+from http.server import BaseHTTPRequestHandler
 
 # Payment processor fee structures
 PROCESSORS = {

@@ -28,16 +28,19 @@ A web app that helps small business owners calculate their true profit per sale 
 ### Local Development
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Start the development server:
+
 ```bash
 npm run dev
 ```
 
 3. For the API (in a separate terminal), you can use Vercel CLI:
+
 ```bash
 npm i -g vercel
 vercel dev
@@ -48,11 +51,13 @@ Or run the Python API directly for testing.
 ### Deploy to Vercel
 
 1. Install Vercel CLI:
+
 ```bash
 npm i -g vercel
 ```
 
 2. Deploy:
+
 ```bash
 vercel
 ```
@@ -64,11 +69,12 @@ vercel
 Calculate profit breakdown for a sale.
 
 **Request Body:**
+
 ```json
 {
   "item_price": 29.99,
-  "cost_of_goods": 10.00,
-  "shipping_cost": 5.00,
+  "cost_of_goods": 10.0,
+  "shipping_cost": 5.0,
   "tax_rate": 5.5,
   "processor": "stripe",
   "transaction_type": "online",
@@ -77,6 +83,7 @@ Calculate profit breakdown for a sale.
 ```
 
 **Response:**
+
 ```json
 {
   "input": { ... },

@@ -8,17 +8,15 @@ hardening phase rather than fixed here, so the math itself is not refactored.
 Run with:  pytest api/
 """
 
-from decimal import Decimal, InvalidOperation
 import json
+from decimal import Decimal, InvalidOperation
 
 import pytest
-
 from calculate import (
-    calculate_profit,
     calculate_processor_fee,
+    calculate_profit,
     calculate_sales_tax,
 )
-
 
 # ---------------------------------------------------------------------------
 # A. calculate_sales_tax
