@@ -6,3 +6,8 @@ dist
 *.log
 
 .vercel
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
