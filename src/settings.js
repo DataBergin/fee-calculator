@@ -10,6 +10,9 @@ export const DEFAULT_SETTINGS = {
   defaultProcessor: 'stripe',
   currency: 'USD',
   theme: 'system', // 'system' | 'light' | 'dark'
+  primaryColor: '#6366f1',
+  logo: '', // base64 data URL, or '' for the default mark
+  onboarded: false,
 }
 
 // Merge stored settings onto the current defaults so missing or legacy keys are

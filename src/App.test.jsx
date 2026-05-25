@@ -33,6 +33,11 @@ const sampleResponse = {
 
 describe('App history', () => {
   beforeEach(() => {
+    // Skip the first-run onboarding modal for these tests.
+    localStorage.setItem(
+      'feecalc.settings',
+      JSON.stringify({ version: 1, onboarded: true, businessName: 'Test Biz' })
+    )
     global.fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,

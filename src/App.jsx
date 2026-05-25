@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import Calculator from './components/Calculator'
 import Results from './components/Results'
 import Insights from './components/Insights'
+import OnboardingModal from './components/OnboardingModal'
 import { formatCurrency } from './format'
+import { historyToCsv, calculationToCsv, downloadCsv } from './csv'
+import { darken } from './color'
 import { loadSettings, saveSettings, resolveTheme, initialsFor } from './settings'
 
 function App() {
@@ -11,11 +14,14 @@ function App() {
   const [error, setError] = useState(null)
   const [history, setHistory] = useState([])
   const [activeTab, setActiveTab] = useState('calculator')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth > 768
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [settings, setSettings] = useState(loadSettings)
   const [draft, setDraft] = useState(settings)
   const [savedFlash, setSavedFlash] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(() => !settings.onboarded)
 
   const currency = settings.currency
 
@@ -31,9 +37,27 @@ function App() {
     return () => mq.removeEventListener('change', handler)
   }, [settings.theme])
 
+  // White-label primary color.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--primary', settings.primaryColor)
+    root.style.setProperty('--primary-dark', darken(settings.primaryColor, 0.18))
+  }, [settings.primaryColor])
+
   useEffect(() => {
     document.title = `${settings.businessName} — Fee & Profit Calculator`
   }, [settings.businessName])
+
+  const completeOnboarding = (values) => {
+    const merged = { ...settings, ...values, onboarded: true }
+    setSettings(merged)
+    setDraft(merged)
+    saveSettings(merged)
+    setShowOnboarding(false)
+  }
+
+  const exportHistoryCsv = () => downloadCsv('fee-calculator-history.csv', historyToCsv(history))
+  const exportCalculationCsv = () => downloadCsv('fee-calculation.csv', calculationToCsv(results))
 
   const calculateFees = async (formData) => {
     setLoading(true)
@@ -89,6 +113,14 @@ function App() {
     setSavedFlash(false)
   }
 
+  const handleLogoUpload = (e) => {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => updateDraft('logo', reader.result)
+    reader.readAsDataURL(file)
+  }
+
   const handleSaveSettings = () => {
     setSettings(draft)
     saveSettings(draft)
@@ -107,14 +139,20 @@ function App() {
 
   return (
     <div className="dashboard">
+      {showOnboarding && <OnboardingModal initial={settings} onComplete={completeOnboarding} />}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-header">
           <div className="logo">
             <div className="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              {settings.logo ? (
+                <img src={settings.logo} alt={`${settings.businessName} logo`} />
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
             </div>
             {sidebarOpen && <span>FeeCalc</span>}
           </div>
@@ -191,6 +229,15 @@ function App() {
         {/* Top Bar */}
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              className="topbar-menu"
+              aria-label="Toggle menu"
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             <h1>
               {activeTab === 'calculator' && 'Fee Calculator'}
               {activeTab === 'history' && 'Calculation History'}
@@ -297,6 +344,11 @@ function App() {
 
                   {results && (
                     <div className="card">
+                      <div className="results-toolbar">
+                        <button className="btn-secondary" onClick={exportCalculationCsv}>
+                          Export CSV
+                        </button>
+                      </div>
                       <Results data={results} currency={currency} />
                     </div>
                   )}
@@ -375,9 +427,14 @@ function App() {
                 <div className="card-header">
                   <h2>Calculation History</h2>
                   {history.length > 0 && (
-                    <button className="btn-secondary" onClick={clearHistory}>
-                      Clear All
-                    </button>
+                    <div className="header-actions">
+                      <button className="btn-secondary" onClick={exportHistoryCsv}>
+                        Export CSV
+                      </button>
+                      <button className="btn-secondary" onClick={clearHistory}>
+                        Clear All
+                      </button>
+                    </div>
                   )}
                 </div>
                 {history.length === 0 ? (
@@ -520,7 +577,7 @@ function App() {
                   </div>
                 </div>
                 <div className="settings-section">
-                  <h3>Appearance</h3>
+                  <h3>Branding &amp; Appearance</h3>
                   <div className="settings-group">
                     <label htmlFor="set-theme">Theme</label>
                     <select
@@ -532,6 +589,39 @@ function App() {
                       <option value="light">Light</option>
                       <option value="dark">Dark</option>
                     </select>
+                  </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-color">Primary Color</label>
+                    <input
+                      id="set-color"
+                      type="color"
+                      className="color-input"
+                      value={draft.primaryColor}
+                      onChange={(e) => updateDraft('primaryColor', e.target.value)}
+                    />
+                  </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-logo">Logo</label>
+                    <div className="logo-upload">
+                      {draft.logo && (
+                        <img className="logo-preview" src={draft.logo} alt="Logo preview" />
+                      )}
+                      <input
+                        id="set-logo"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                      />
+                      {draft.logo && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => updateDraft('logo', '')}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <button className="btn-primary" onClick={handleSaveSettings}>
