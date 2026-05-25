@@ -12,16 +12,12 @@ import {
   CartesianGrid,
 } from 'recharts'
 
+import { formatCurrency as fmt } from '../format'
+
 const COLORS = ['#ef4444', '#f97316', '#8b5cf6', '#22c55e']
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
-}
-
-function Results({ data }) {
+function Results({ data, currency = 'USD' }) {
+  const formatCurrency = (amount) => fmt(amount, currency)
   const { input, calculations, monthly, fee_breakdown } = data
 
   // Prepare pie chart data

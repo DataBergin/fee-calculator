@@ -32,6 +32,37 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --radius: 12px;
+
+  /* Semantic surfaces (remapped in dark mode below). */
+  --bg: var(--gray-100);
+  --surface: #ffffff;
+  --surface-alt: var(--gray-50);
+  color-scheme: light;
+}
+
+/* Dark mode: invert the gray ramp so existing var(--gray-*) text/background
+   references flip automatically, and point surfaces at dark panels. */
+[data-theme='dark'] {
+  --gray-50: #1e293b;
+  --gray-100: #0f172a;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-400: #64748b;
+  --gray-500: #94a3b8;
+  --gray-600: #cbd5e1;
+  --gray-700: #e2e8f0;
+  --gray-800: #f1f5f9;
+  --gray-900: #f8fafc;
+  --secondary: #0b1120;
+  --accent: #1e293b;
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-alt: #273449;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
 }
 
 html {
@@ -45,7 +76,7 @@ body {
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  background: var(--gray-100);
+  background: var(--bg);
   color: var(--gray-800);
   line-height: 1.6;
 }
@@ -239,7 +270,7 @@ body {
 /* Top Bar */
 .topbar {
   height: var(--topbar-height);
-  background: white;
+  background: var(--surface);
   border-bottom: 1px solid var(--gray-200);
   display: flex;
   align-items: center;
@@ -323,7 +354,7 @@ body {
 }
 
 .stat-card {
-  background: white;
+  background: var(--surface);
   border-radius: var(--radius);
   padding: 1.25rem;
   display: flex;
@@ -404,7 +435,7 @@ body {
 
 /* Cards */
 .card {
-  background: white;
+  background: var(--surface);
   border-radius: var(--radius);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
@@ -480,7 +511,7 @@ body {
   border-radius: 8px;
   font-size: 0.95rem;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--surface);
 }
 
 .form-group input:focus {
@@ -512,7 +543,7 @@ body {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: white;
+  background: var(--surface);
 }
 
 .radio-label:hover {
@@ -822,7 +853,7 @@ body {
   border: 1px solid var(--gray-300);
   border-radius: 8px;
   font-size: 0.95rem;
-  background: white;
+  background: var(--surface);
 }
 
 .settings-group input:focus,
@@ -863,7 +894,7 @@ body {
 }
 
 .metric-card {
-  background: var(--gray-50);
+  background: var(--surface-alt);
   border-radius: 10px;
   padding: 1rem;
   border: 1px solid var(--gray-100);
@@ -925,7 +956,7 @@ body {
 }
 
 .chart-container {
-  background: var(--gray-50);
+  background: var(--surface-alt);
   border-radius: 10px;
   padding: 1rem;
 }
@@ -1017,6 +1048,50 @@ body {
   font-weight: 500;
 }
 
+/* Topbar business name */
+.topbar-business {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+/* Saved confirmation chip */
+.card-badge.saved-flash {
+  background: var(--success);
+  color: white;
+}
+
+/* Insights */
+.insights-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.insights-view .dashboard-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.best-worst .bw-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.best-worst .bw-value.positive {
+  color: var(--success);
+}
+
+.best-worst .bw-value.negative {
+  color: var(--danger);
+}
+
+.best-worst .bw-meta {
+  color: var(--gray-500);
+  font-size: 0.9rem;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .dashboard-grid {
@@ -1067,6 +1142,14 @@ body {
 
   .search-box {
     display: none;
+  }
+
+  .topbar-business {
+    display: none;
+  }
+
+  .insights-view .dashboard-grid {
+    grid-template-columns: 1fr;
   }
 
   .topbar-left h1 {

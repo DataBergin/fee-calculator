@@ -10,13 +10,13 @@ const TRANSACTION_TYPES = [
   { id: 'in_person', name: 'In-Person / Card Present' },
 ]
 
-function Calculator({ onCalculate, loading }) {
+function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcessor = 'stripe' }) {
   const [formData, setFormData] = useState({
     item_price: '',
     cost_of_goods: '',
     shipping_cost: '',
-    tax_rate: '',
-    processor: 'stripe',
+    tax_rate: defaultTaxRate === '' || defaultTaxRate == null ? '' : String(defaultTaxRate),
+    processor: defaultProcessor,
     transaction_type: 'online',
     monthly_units: '',
   })

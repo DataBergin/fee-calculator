@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Calculator from './components/Calculator'
 import Results from './components/Results'
+import Insights from './components/Insights'
+import { formatCurrency } from './format'
+import { loadSettings, saveSettings, resolveTheme, initialsFor } from './settings'
 
 function App() {
   const [results, setResults] = useState(null)
@@ -9,6 +12,28 @@ function App() {
   const [history, setHistory] = useState([])
   const [activeTab, setActiveTab] = useState('calculator')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [settings, setSettings] = useState(loadSettings)
+  const [draft, setDraft] = useState(settings)
+  const [savedFlash, setSavedFlash] = useState(false)
+
+  const currency = settings.currency
+
+  // Apply the resolved theme to the document and keep it in sync with the OS
+  // setting while the preference is 'system'.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolveTheme(settings.theme))
+    if (settings.theme !== 'system' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () =>
+      document.documentElement.setAttribute('data-theme', mq.matches ? 'dark' : 'light')
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [settings.theme])
+
+  useEffect(() => {
+    document.title = `${settings.businessName} — Fee & Profit Calculator`
+  }, [settings.businessName])
 
   const calculateFees = async (formData) => {
     setLoading(true)
@@ -21,14 +46,14 @@ function App() {
         body: JSON.stringify(formData),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Calculation failed')
+        throw new Error(data.message || 'Calculation failed')
       }
 
-      const data = await response.json()
       setResults(data)
 
-      // Add to history
       setHistory((prev) =>
         [
           {
@@ -40,7 +65,11 @@ function App() {
         ].slice(0, 10)
       )
     } catch (err) {
-      setError(err.message)
+      const message =
+        err.name === 'TypeError'
+          ? 'Could not reach the calculator service. Check your connection and try again.'
+          : err.message
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -54,6 +83,27 @@ function App() {
   const clearHistory = () => {
     setHistory([])
   }
+
+  const updateDraft = (key, value) => {
+    setDraft((d) => ({ ...d, [key]: value }))
+    setSavedFlash(false)
+  }
+
+  const handleSaveSettings = () => {
+    setSettings(draft)
+    saveSettings(draft)
+    setSavedFlash(true)
+  }
+
+  const filteredHistory = history.filter((item) => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return true
+    return (
+      item.data.input.processor.toLowerCase().includes(q) ||
+      String(item.data.input.item_price).includes(q) ||
+      item.timestamp.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <div className="dashboard">
@@ -126,9 +176,9 @@ function App() {
         <div className="sidebar-footer">
           {sidebarOpen && (
             <div className="user-info">
-              <div className="avatar">JB</div>
+              <div className="avatar">{initialsFor(settings.businessName)}</div>
               <div className="user-details">
-                <span className="user-name">Jack&apos;s Cafe</span>
+                <span className="user-name">{settings.businessName}</span>
                 <span className="user-plan">Free Plan</span>
               </div>
             </div>
@@ -153,13 +203,17 @@ function App() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              <input type="text" placeholder="Search..." />
+              <input
+                type="text"
+                placeholder="Search history..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  if (e.target.value.trim()) setActiveTab('history')
+                }}
+              />
             </div>
-            <button className="icon-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </button>
+            <span className="topbar-business">{settings.businessName}</span>
           </div>
         </header>
 
@@ -188,7 +242,7 @@ function App() {
                   </div>
                   <div className="stat-info">
                     <span className="stat-value">
-                      {results ? `$${results.calculations.net_profit.toFixed(2)}` : '--'}
+                      {results ? formatCurrency(results.calculations.net_profit, currency) : '--'}
                     </span>
                     <span className="stat-label">Last Profit</span>
                   </div>
@@ -215,7 +269,7 @@ function App() {
                   <div className="stat-info">
                     <span className="stat-value">
                       {results
-                        ? `$${results.calculations.processor_fees.total_fee.toFixed(2)}`
+                        ? formatCurrency(results.calculations.processor_fees.total_fee, currency)
                         : '--'}
                     </span>
                     <span className="stat-label">Last Fee</span>
@@ -231,14 +285,19 @@ function App() {
                       <h2>New Calculation</h2>
                       <span className="card-badge">Quick Calc</span>
                     </div>
-                    <Calculator onCalculate={calculateFees} loading={loading} />
+                    <Calculator
+                      onCalculate={calculateFees}
+                      loading={loading}
+                      defaultTaxRate={settings.defaultTaxRate}
+                      defaultProcessor={settings.defaultProcessor}
+                    />
                   </div>
 
                   {error && <div className="error-message">{error}</div>}
 
                   {results && (
                     <div className="card">
-                      <Results data={results} />
+                      <Results data={results} currency={currency} />
                     </div>
                   )}
                 </div>
@@ -271,10 +330,11 @@ function App() {
                             </div>
                             <div className="activity-details">
                               <span className="activity-title">
-                                ${item.data.input.item_price.toFixed(2)} sale
+                                {formatCurrency(item.data.input.item_price, currency)} sale
                               </span>
                               <span className="activity-meta">
-                                Profit: ${item.data.calculations.net_profit.toFixed(2)}
+                                Profit:{' '}
+                                {formatCurrency(item.data.calculations.net_profit, currency)}
                               </span>
                             </div>
                             <span className="activity-time">{item.timestamp.split(',')[1]}</span>
@@ -331,6 +391,17 @@ function App() {
                       Start Calculating
                     </button>
                   </div>
+                ) : filteredHistory.length === 0 ? (
+                  <div className="empty-state-large">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <h3>No matches</h3>
+                    <p>No calculations match &ldquo;{searchQuery}&rdquo;.</p>
+                    <button className="btn-secondary" onClick={() => setSearchQuery('')}>
+                      Clear search
+                    </button>
+                  </div>
                 ) : (
                   <div className="history-table">
                     <table>
@@ -346,20 +417,24 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {history.map((item) => (
+                        {filteredHistory.map((item) => (
                           <tr key={item.id}>
                             <td>{item.timestamp}</td>
-                            <td>${item.data.input.item_price.toFixed(2)}</td>
+                            <td>{formatCurrency(item.data.input.item_price, currency)}</td>
                             <td>{item.data.input.processor}</td>
                             <td className="negative">
-                              -${item.data.calculations.processor_fees.total_fee.toFixed(2)}
+                              -{' '}
+                              {formatCurrency(
+                                item.data.calculations.processor_fees.total_fee,
+                                currency
+                              )}
                             </td>
                             <td
                               className={
                                 item.data.calculations.net_profit >= 0 ? 'positive' : 'negative'
                               }
                             >
-                              ${item.data.calculations.net_profit.toFixed(2)}
+                              {formatCurrency(item.data.calculations.net_profit, currency)}
                             </td>
                             <td>{item.data.calculations.profit_margin.toFixed(1)}%</td>
                             <td>
@@ -379,16 +454,11 @@ function App() {
 
           {activeTab === 'insights' && (
             <div className="insights-view">
-              <div className="card">
-                <div className="empty-state-large">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <h3>Business Insights Coming Soon</h3>
-                  <p>Track trends, compare processors, and optimize your pricing.</p>
-                  <span className="coming-soon-badge">Coming Soon</span>
-                </div>
-              </div>
+              <Insights
+                history={history}
+                currency={currency}
+                onStart={() => setActiveTab('calculator')}
+              />
             </div>
           )}
 
@@ -397,40 +467,76 @@ function App() {
               <div className="card">
                 <div className="card-header">
                   <h2>Settings</h2>
+                  {savedFlash && <span className="card-badge saved-flash">Saved</span>}
                 </div>
                 <div className="settings-section">
                   <h3>Business Profile</h3>
                   <div className="settings-group">
-                    <label>Business Name</label>
+                    <label htmlFor="set-business-name">Business Name</label>
                     <input
+                      id="set-business-name"
                       type="text"
                       placeholder="Your Business Name"
-                      defaultValue="Jack's Cafe"
+                      value={draft.businessName}
+                      onChange={(e) => updateDraft('businessName', e.target.value)}
                     />
                   </div>
                   <div className="settings-group">
-                    <label>Default Tax Rate (%)</label>
-                    <input type="number" placeholder="5.5" defaultValue="5.5" />
+                    <label htmlFor="set-tax-rate">Default Tax Rate (%)</label>
+                    <input
+                      id="set-tax-rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="5.5"
+                      value={draft.defaultTaxRate}
+                      onChange={(e) => updateDraft('defaultTaxRate', e.target.value)}
+                    />
                   </div>
                   <div className="settings-group">
-                    <label>Preferred Processor</label>
-                    <select defaultValue="stripe">
+                    <label htmlFor="set-processor">Preferred Processor</label>
+                    <select
+                      id="set-processor"
+                      value={draft.defaultProcessor}
+                      onChange={(e) => updateDraft('defaultProcessor', e.target.value)}
+                    >
                       <option value="stripe">Stripe</option>
                       <option value="toast">Toast</option>
+                    </select>
+                  </div>
+                  <div className="settings-group">
+                    <label htmlFor="set-currency">Currency</label>
+                    <select
+                      id="set-currency"
+                      value={draft.currency}
+                      onChange={(e) => updateDraft('currency', e.target.value)}
+                    >
+                      <option value="USD">USD ($)</option>
+                      <option value="CAD">CAD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
                     </select>
                   </div>
                 </div>
                 <div className="settings-section">
                   <h3>Appearance</h3>
                   <div className="settings-group">
-                    <label>Theme</label>
-                    <select defaultValue="light">
+                    <label htmlFor="set-theme">Theme</label>
+                    <select
+                      id="set-theme"
+                      value={draft.theme}
+                      onChange={(e) => updateDraft('theme', e.target.value)}
+                    >
+                      <option value="system">System</option>
                       <option value="light">Light</option>
-                      <option value="dark">Dark (Coming Soon)</option>
+                      <option value="dark">Dark</option>
                     </select>
                   </div>
                 </div>
-                <button className="btn-primary">Save Changes</button>
+                <button className="btn-primary" onClick={handleSaveSettings}>
+                  Save Changes
+                </button>
               </div>
             </div>
           )}

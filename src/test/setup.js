@@ -10,6 +10,21 @@ class ResizeObserver {
 }
 vi.stubGlobal('ResizeObserver', ResizeObserver)
 
+// jsdom does not implement matchMedia; default to "light" (matches: false).
+if (typeof window.matchMedia !== 'function') {
+  window.matchMedia = (query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })
+}
+
 afterEach(() => {
   cleanup()
+  localStorage.clear()
 })
