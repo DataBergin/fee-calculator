@@ -560,6 +560,8 @@ function App() {
                     >
                       <option value="stripe">Stripe</option>
                       <option value="toast">Toast</option>
+                      <option value="square">Square</option>
+                      <option value="clover">Clover</option>
                     </select>
                   </div>
                   <div className="settings-group">

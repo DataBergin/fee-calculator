@@ -78,6 +78,24 @@ def test_processor_fee_toast_in_person():
     assert fee["total_fee"] == pytest.approx(2.64)
 
 
+def test_processor_fee_square_rates():
+    online = calculate_processor_fee(Decimal("100.00"), "square", "online")
+    assert online["percent_rate"] == 3.3
+    assert online["fixed_rate"] == 0.30
+    in_person = calculate_processor_fee(Decimal("100.00"), "square", "in_person")
+    assert in_person["percent_rate"] == 2.6
+    assert in_person["fixed_rate"] == 0.15
+
+
+def test_processor_fee_clover_rates():
+    online = calculate_processor_fee(Decimal("100.00"), "clover", "online")
+    assert online["percent_rate"] == 3.5
+    assert online["fixed_rate"] == 0.10
+    in_person = calculate_processor_fee(Decimal("100.00"), "clover", "in_person")
+    assert in_person["percent_rate"] == 2.6
+    assert in_person["fixed_rate"] == 0.10
+
+
 def test_processor_fee_percent_rounds_half_up():
     # 5.00 * 2.9% = 0.1450 -> HALF_UP -> 0.15
     fee = calculate_processor_fee(Decimal("5.00"), "stripe", "online")
@@ -266,6 +284,52 @@ def test_monthly_negative_units_treated_as_zero():
 
 
 # ---------------------------------------------------------------------------
+# E2. tip handling
+# ---------------------------------------------------------------------------
+
+def test_no_tip_leaves_total_charged_unchanged():
+    result = calculate_profit({"item_price": 10.00, "cost_of_goods": 3.00, "tax_rate": 0})
+    assert result["calculations"]["total_charged"] == pytest.approx(10.00)
+
+
+def test_passthrough_tip_only_costs_its_processor_fee():
+    base = {
+        "item_price": 10.00,
+        "cost_of_goods": 3.00,
+        "tax_rate": 0,
+        "processor": "stripe",
+        "transaction_type": "online",
+    }
+    no_tip = calculate_profit(base)
+    tipped = calculate_profit({**base, "tip_amount": 5.00, "tip_passthrough": True})
+
+    # Customer is charged the tip, but it is not kept as revenue.
+    assert tipped["calculations"]["total_charged"] == pytest.approx(15.00)
+    assert tipped["calculations"]["net_profit"] == pytest.approx(6.26)
+    # Margin drops only by the extra processor fee on the tip.
+    assert tipped["calculations"]["net_profit"] < no_tip["calculations"]["net_profit"]
+
+
+def test_non_passthrough_tip_counts_as_revenue():
+    result = calculate_profit({
+        "item_price": 10.00,
+        "cost_of_goods": 3.00,
+        "tax_rate": 0,
+        "processor": "stripe",
+        "transaction_type": "online",
+        "tip_amount": 5.00,
+        "tip_passthrough": False,
+    })
+    assert result["calculations"]["total_charged"] == pytest.approx(15.00)
+    assert result["calculations"]["net_profit"] == pytest.approx(11.26)
+
+
+def test_tip_defaults_to_passthrough():
+    result = calculate_profit({"item_price": 10.00, "cost_of_goods": 3.00, "tip_amount": 5.00})
+    assert result["input"]["tip_passthrough"] is True
+
+
+# ---------------------------------------------------------------------------
 # F. calculate_profit edge cases (it assumes pre-validated input; validate_input
 #    is the boundary guard tested in section H)
 # ---------------------------------------------------------------------------
@@ -411,6 +475,17 @@ def test_validate_rejects_negative_shipping():
     with pytest.raises(ValidationError) as exc:
         validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "shipping_cost": -1})
     assert exc.value.field == "shipping_cost"
+
+
+def test_validate_rejects_negative_tip():
+    with pytest.raises(ValidationError) as exc:
+        validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "tip_amount": -2})
+    assert exc.value.field == "tip_amount"
+
+
+def test_validate_accepts_square_and_clover():
+    validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "processor": "square"})
+    validate_input({"item_price": 10.00, "cost_of_goods": 5.00, "processor": "clover"})
 
 
 def test_validate_rejects_tax_rate_above_100():

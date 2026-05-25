@@ -576,6 +576,32 @@ body {
   font-size: 0.8rem;
 }
 
+/* Tax preset + checkbox */
+.tax-preset {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--gray-700);
+  margin-bottom: 0.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.checkbox-label input {
+  width: auto;
+  accent-color: var(--primary);
+}
+
 /* Submit Button */
 .submit-btn {
   width: 100%;

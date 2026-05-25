@@ -3,6 +3,15 @@ import { useState } from 'react'
 const PROCESSORS = [
   { id: 'stripe', name: 'Stripe', description: '2.9% + $0.30 online' },
   { id: 'toast', name: 'Toast', description: '2.99% + $0.15 online' },
+  { id: 'square', name: 'Square', description: '3.3% + $0.30 online' },
+  { id: 'clover', name: 'Clover', description: '3.5% + $0.10 online' },
+]
+
+const MAINE_TAX_PRESETS = [
+  { value: '5.5', label: 'General — 5.5%' },
+  { value: '8', label: 'Prepared food — 8%' },
+  { value: '9', label: 'Lodging — 9%' },
+  { value: '0', label: 'No tax — 0%' },
 ]
 
 const TRANSACTION_TYPES = [
@@ -19,11 +28,18 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
     processor: defaultProcessor,
     transaction_type: 'online',
     monthly_units: '',
+    tip_amount: '',
+    tip_passthrough: true,
   })
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+  }
+
+  const handleTaxPreset = (e) => {
+    const value = e.target.value
+    if (value !== '') setFormData((prev) => ({ ...prev, tax_rate: value }))
   }
 
   const handleSubmit = (e) => {
@@ -37,6 +53,8 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
       processor: formData.processor,
       transaction_type: formData.transaction_type,
       monthly_units: parseInt(formData.monthly_units) || 0,
+      tip_amount: parseFloat(formData.tip_amount) || 0,
+      tip_passthrough: formData.tip_passthrough,
     }
 
     onCalculate(data)
@@ -95,6 +113,19 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
 
         <div className="form-group">
           <label htmlFor="tax_rate">Sales Tax Rate (%)</label>
+          <select
+            className="tax-preset"
+            aria-label="Common Maine tax rates"
+            value=""
+            onChange={handleTaxPreset}
+          >
+            <option value="">Common Maine rates…</option>
+            {MAINE_TAX_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
           <input
             type="number"
             id="tax_rate"
@@ -106,7 +137,7 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
             min="0"
             max="100"
           />
-          <span className="hint">Maine: 5.5%, varies by state</span>
+          <span className="hint">Maine: 5.5% general, 8% prepared food, 9% lodging.</span>
         </div>
       </div>
 
@@ -150,6 +181,36 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="form-section">
+        <h2>Tips (Optional)</h2>
+
+        <div className="form-group">
+          <label htmlFor="tip_amount">Tip Amount ($)</label>
+          <input
+            type="number"
+            id="tip_amount"
+            name="tip_amount"
+            value={formData.tip_amount}
+            onChange={handleChange}
+            placeholder="0.00"
+            step="0.01"
+            min="0"
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              name="tip_passthrough"
+              checked={formData.tip_passthrough}
+              onChange={handleChange}
+            />
+            <span>Tips pass through to staff (don&apos;t count toward margin)</span>
+          </label>
         </div>
       </div>
 

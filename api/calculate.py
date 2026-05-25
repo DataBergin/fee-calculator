@@ -22,6 +22,18 @@ PROCESSORS = {
         "online": {"percent": Decimal("2.99"), "fixed": Decimal("0.15")},
         "in_person": {"percent": Decimal("2.49"), "fixed": Decimal("0.15")},
     },
+    "square": {
+        "name": "Square",
+        # Square free plan (2026); see PROCESSORS.md
+        "online": {"percent": Decimal("3.3"), "fixed": Decimal("0.30")},
+        "in_person": {"percent": Decimal("2.6"), "fixed": Decimal("0.15")},
+    },
+    "clover": {
+        "name": "Clover",
+        # Clover basic tier (2026); see PROCESSORS.md
+        "online": {"percent": Decimal("3.5"), "fixed": Decimal("0.10")},
+        "in_person": {"percent": Decimal("2.6"), "fixed": Decimal("0.10")},
+    },
 }
 
 VALID_TRANSACTION_TYPES = ("online", "in_person")
@@ -87,6 +99,7 @@ def validate_input(data):
     _require_amount(data, "item_price", required=True, allow_zero=False)
     _require_amount(data, "cost_of_goods", required=True, allow_zero=True)
     _require_amount(data, "shipping_cost", required=False, allow_zero=True)
+    _require_amount(data, "tip_amount", required=False, allow_zero=True)
 
     if data.get("tax_rate") not in (None, ""):
         try:
@@ -166,17 +179,23 @@ def calculate_profit(data: dict) -> dict:
     processor = data.get("processor", "stripe")
     transaction_type = data.get("transaction_type", "online")
     monthly_units = int(data.get("monthly_units", 0))
+    tip_amount = Decimal(str(data.get("tip_amount", 0)))
+    # Pass-through tips are collected from the customer and paid out to staff,
+    # so they do not count toward the business's margin (only the processor fee
+    # charged on the tip is a cost). When disabled, the tip is kept as revenue.
+    tip_passthrough = bool(data.get("tip_passthrough", True))
 
     # Calculate components
     sales_tax = calculate_sales_tax(item_price, tax_rate)
-    total_with_tax = item_price + sales_tax
+    # The customer is charged price + tax + tip; the processor fee applies to all.
+    total_with_tax = item_price + sales_tax + tip_amount
 
-    # Processor fee is calculated on total charged (including tax)
+    # Processor fee is calculated on total charged (including tax and tip)
     processor_fees = calculate_processor_fee(total_with_tax, processor, transaction_type)
     processor_fee = Decimal(str(processor_fees["total_fee"]))
 
     # Calculate net and profit
-    gross_revenue = item_price  # What you "earn" before costs
+    gross_revenue = item_price if tip_passthrough else item_price + tip_amount
     total_costs = cost_of_goods + shipping_cost + processor_fee
     net_profit = gross_revenue - total_costs
 
@@ -221,6 +240,8 @@ def calculate_profit(data: dict) -> dict:
             "tax_rate": float(tax_rate),
             "processor": PROCESSORS[processor]["name"],
             "transaction_type": transaction_type,
+            "tip_amount": float(tip_amount),
+            "tip_passthrough": tip_passthrough,
         },
         "calculations": {
             "sales_tax": float(sales_tax),

@@ -54,6 +54,8 @@ function OnboardingModal({ initial, onComplete }) {
             >
               <option value="stripe">Stripe</option>
               <option value="toast">Toast</option>
+              <option value="square">Square</option>
+              <option value="clover">Clover</option>
             </select>
           </div>
           <button type="submit" className="btn-primary">

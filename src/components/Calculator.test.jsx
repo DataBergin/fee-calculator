@@ -34,7 +34,37 @@ describe('Calculator', () => {
       processor: 'stripe',
       transaction_type: 'online',
       monthly_units: 100,
+      tip_amount: 0,
+      tip_passthrough: true,
     })
+  })
+
+  it('includes a pass-through tip in the payload', async () => {
+    const user = userEvent.setup()
+    const onCalculate = vi.fn()
+    render(<Calculator onCalculate={onCalculate} loading={false} />)
+
+    await user.type(screen.getByLabelText(/Selling Price/i), '10')
+    await user.type(screen.getByLabelText(/Cost of Goods/i), '4')
+    await user.type(screen.getByLabelText(/Tip Amount/i), '3')
+    await user.click(screen.getByRole('button', { name: /Calculate Profit/i }))
+
+    expect(onCalculate).toHaveBeenCalledWith(
+      expect.objectContaining({ tip_amount: 3, tip_passthrough: true })
+    )
+  })
+
+  it('applies a Maine tax preset to the rate field', async () => {
+    const user = userEvent.setup()
+    const onCalculate = vi.fn()
+    render(<Calculator onCalculate={onCalculate} loading={false} />)
+
+    await user.type(screen.getByLabelText(/Selling Price/i), '10')
+    await user.type(screen.getByLabelText(/Cost of Goods/i), '4')
+    await user.selectOptions(screen.getByLabelText(/Common Maine tax rates/i), '8')
+    await user.click(screen.getByRole('button', { name: /Calculate Profit/i }))
+
+    expect(onCalculate).toHaveBeenCalledWith(expect.objectContaining({ tax_rate: 8 }))
   })
 
   it('defaults empty optional fields to 0', async () => {

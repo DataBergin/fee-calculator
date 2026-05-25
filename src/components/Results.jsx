@@ -157,6 +157,12 @@ function Results({ data, currency = 'USD' }) {
               <td>Sales Tax ({input.tax_rate}%)</td>
               <td>+ {formatCurrency(calculations.sales_tax)}</td>
             </tr>
+            {input.tip_amount > 0 && (
+              <tr>
+                <td>Tip {input.tip_passthrough ? '(pass-through)' : '(kept)'}</td>
+                <td>+ {formatCurrency(input.tip_amount)}</td>
+              </tr>
+            )}
             <tr className="subtotal">
               <td>Customer Pays</td>
               <td>{formatCurrency(calculations.total_charged)}</td>
