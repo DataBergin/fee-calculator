@@ -345,6 +345,27 @@ body {
   min-height: calc(100vh - var(--topbar-height));
 }
 
+/* Landing hero */
+.hero {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: var(--radius);
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.hero p {
+  font-size: 1rem;
+  opacity: 0.9;
+  max-width: 640px;
+}
+
 /* Quick Stats */
 .quick-stats {
   display: grid;

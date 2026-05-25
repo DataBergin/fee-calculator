@@ -54,8 +54,9 @@ describe('App history', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    // Recent Activity starts empty
+    // Recent Activity starts empty and the landing hero is shown
     expect(screen.getByText(/No calculations yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/See your real profit per sale/i)).toBeInTheDocument()
 
     await user.type(screen.getByLabelText(/Selling Price/i), '29.99')
     await user.type(screen.getByLabelText(/Cost of Goods/i), '10')

@@ -268,6 +268,17 @@ function App() {
         <div className="content-area">
           {activeTab === 'calculator' && (
             <div className="calculator-view">
+              {/* Landing hero (shown until the first calculation) */}
+              {!results && (
+                <div className="hero">
+                  <h2>See your real profit per sale</h2>
+                  <p>
+                    Know exactly what you keep after card fees, sales tax, and costs. Built for
+                    Maine small businesses.
+                  </p>
+                </div>
+              )}
+
               {/* Quick Stats */}
               <div className="quick-stats">
                 <div className="stat-card">
