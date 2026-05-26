@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import Calculator from './components/Calculator'
 import Results from './components/Results'
 import Insights from './components/Insights'
+import ImportAnalysis from './components/ImportAnalysis'
 import OnboardingModal from './components/OnboardingModal'
 import { formatCurrency } from './format'
 import { historyToCsv, calculationToCsv, downloadCsv } from './csv'
+import { PROCESSOR_LIST } from './processors'
 import { darken } from './color'
 import { loadSettings, saveSettings, resolveTheme, initialsFor } from './settings'
 
@@ -179,6 +181,16 @@ function App() {
           </button>
 
           <button
+            className={`nav-item ${activeTab === 'import' ? 'active' : ''}`}
+            onClick={() => setActiveTab('import')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0-12l-4 4m4-4l4 4" />
+            </svg>
+            {sidebarOpen && <span>Import</span>}
+          </button>
+
+          <button
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
@@ -240,6 +252,7 @@ function App() {
             </button>
             <h1>
               {activeTab === 'calculator' && 'Fee Calculator'}
+              {activeTab === 'import' && 'Import & Analyze'}
               {activeTab === 'history' && 'Calculation History'}
               {activeTab === 'insights' && 'Business Insights'}
               {activeTab === 'settings' && 'Settings'}
@@ -520,6 +533,12 @@ function App() {
             </div>
           )}
 
+          {activeTab === 'import' && (
+            <div className="import-tab">
+              <ImportAnalysis currency={currency} defaultProcessor={settings.defaultProcessor} />
+            </div>
+          )}
+
           {activeTab === 'insights' && (
             <div className="insights-view">
               <Insights
@@ -569,10 +588,11 @@ function App() {
                       value={draft.defaultProcessor}
                       onChange={(e) => updateDraft('defaultProcessor', e.target.value)}
                     >
-                      <option value="stripe">Stripe</option>
-                      <option value="toast">Toast</option>
-                      <option value="square">Square</option>
-                      <option value="clover">Clover</option>
+                      {PROCESSOR_LIST.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="settings-group">

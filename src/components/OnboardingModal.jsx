@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PROCESSOR_LIST } from '../processors'
 
 function OnboardingModal({ initial, onComplete }) {
   const [businessName, setBusinessName] = useState(
@@ -52,10 +53,11 @@ function OnboardingModal({ initial, onComplete }) {
               value={defaultProcessor}
               onChange={(e) => setDefaultProcessor(e.target.value)}
             >
-              <option value="stripe">Stripe</option>
-              <option value="toast">Toast</option>
-              <option value="square">Square</option>
-              <option value="clover">Clover</option>
+              {PROCESSOR_LIST.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
             </select>
           </div>
           <button type="submit" className="btn-primary">
