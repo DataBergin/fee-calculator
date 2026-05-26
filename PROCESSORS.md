@@ -7,8 +7,9 @@ official source before relying on a number for a real client.**
 Rates last reviewed: **2026-05-25**.
 
 The processor rates live in `api/calculate.py` (`PROCESSORS`). Update them there
-and keep this file in sync. The frontend descriptions live in
-`src/components/Calculator.jsx` (`PROCESSORS`).
+and keep this file in sync. The frontend mirrors them in `src/processors.js`
+(`PROCESSORS` + `PROCESSOR_LIST`, used for display and client-side fee
+estimation) — update both when a rate changes.
 
 ## Payment processors
 

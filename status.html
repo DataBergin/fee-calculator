@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fee Advisor — Project Status</title>
+    <style>
+      :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --green: #16a34a;
+        --amber: #d97706;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.6;
+        padding: 2rem 1rem 4rem;
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      header.hero {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+      }
+      header.hero h1 {
+        font-size: 1.7rem;
+        margin-bottom: 0.35rem;
+      }
+      header.hero p {
+        opacity: 0.92;
+      }
+      .meta {
+        margin-top: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .stat {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+      }
+      .stat .num {
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+      .stat .lbl {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .stat .num.green {
+        color: var(--green);
+      }
+      .stat .num.amber {
+        color: var(--amber);
+      }
+      section.card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-bottom: 1.25rem;
+      }
+      section.card > h2 {
+        font-size: 1.15rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 0.95rem;
+        margin: 1rem 0 0.4rem;
+        color: var(--primary-dark);
+      }
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 0.3rem 0 0.3rem 1.7rem;
+        position: relative;
+        font-size: 0.95rem;
+      }
+      li.done::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        color: var(--green);
+        font-weight: 800;
+      }
+      li.todo::before {
+        content: '→';
+        position: absolute;
+        left: 0;
+        color: var(--primary);
+        font-weight: 800;
+      }
+      li.warn::before {
+        content: '!';
+        position: absolute;
+        left: 0.35rem;
+        color: var(--amber);
+        font-weight: 800;
+      }
+      li small {
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.1rem 0.5rem;
+        border-radius: 6px;
+        background: #eef2ff;
+        color: var(--primary-dark);
+        margin-right: 0.4rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.5rem 0.4rem;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-align: center;
+        margin-top: 1rem;
+      }
+      @media (max-width: 640px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <h1>Fee Calculator → Independent Fee Advisor</h1>
+        <p>Project status &amp; next steps · branch <code>claude/funny-sagan-By9uT</code></p>
+        <div class="meta">
+          <span class="badge">124 tests passing</span>
+          <span class="badge">Lint / build clean</span>
+          <span class="badge">CI green on push</span>
+          <span class="badge">Not yet deployed</span>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="stat"><div class="num green">124</div><div class="lbl">Tests passing (67 web + 57 API)</div></div>
+        <div class="stat"><div class="num green">9</div><div class="lbl">Commits on the branch</div></div>
+        <div class="stat"><div class="num">6 + A</div><div class="lbl">Build phases + advisor Phase A</div></div>
+        <div class="stat"><div class="num amber">1</div><div class="lbl">Item left: live deploy (your step)</div></div>
+      </div>
+
+      <section class="card">
+        <h2>✅ Done</h2>
+        <h3>Production-readiness (Phases 1–6)</h3>
+        <ul>
+          <li class="done">Tested fee math + component tests; ESLint / Prettier / ruff; GitHub Actions CI</li>
+          <li class="done">Hardened API: field validation, structured <code>400</code>s, <code>/api/health</code>, JSON logs, env-gated CORS</li>
+          <li class="done">Settings persistence, business name from settings, real dark mode, Insights, search</li>
+          <li class="done">White-label logo + color, CSV export, onboarding modal, mobile nav, empty/error states</li>
+          <li class="done">Maine polish: Square &amp; Clover (verified rates), tax presets, tip handling</li>
+          <li class="done">Landing hero, evaluator README, Vercel auto-deploy workflow</li>
+        </ul>
+        <h3>Strategic pivot (this session)</h3>
+        <ul>
+          <li class="done">Repositioned as an <strong>independent fee advisor</strong> (the angle a POS can't offer)</li>
+          <li class="done">Monetization decided: <strong>audit-led</strong></li>
+          <li class="done"><span class="pill">Advisor Phase A</span>CSV import → effective rate, small-ticket drag, ticket histogram — all in-browser, nothing uploaded</li>
+          <li class="done">New tested modules (csvParse, analyze, processors); processor list de-duplicated</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>💵 Monetization (audit-led)</h2>
+        <table>
+          <tr><th>Model</th><th>Role</th><th>Notes</th></tr>
+          <tr><td>One-time "Fee Health Check" audit</td><td>Primary</td><td>~$200 truck · ~$350 café/retail · ~$500 restaurant</td></tr>
+          <tr><td>Free effective-rate tool</td><td>Lead magnet</td><td>Funnels to the paid audit</td></tr>
+          <tr><td>Monitoring retainer</td><td>Upsell</td><td>Light quarterly re-check</td></tr>
+          <tr><td>White-label to bookkeepers</td><td>Scale (later)</td><td>Higher ACV, longer sales motion</td></tr>
+        </table>
+        <ul style="margin-top: 0.75rem">
+          <li class="warn">Never take processor referral commissions — it destroys the independence that is the whole moat.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>→ Next steps</h2>
+        <h3>Product roadmap</h3>
+        <ul>
+          <li class="todo"><strong>Phase B — Savings / switch analysis:</strong> the "$X/yr saved" number that sells the audit. <small>Needs the rate model extended with monthly fees + contract length.</small></li>
+          <li class="todo"><strong>Phase C — Pricing levers:</strong> card minimum, surcharge, cash discount, plan-tier upgrade. <small>Verify Maine + Visa/MC surcharge rules; advisory + disclaimer.</small></li>
+          <li class="todo"><strong>Phase D — Fee Health Report:</strong> one-page exportable summary = client deliverable + prospecting artifact.</li>
+        </ul>
+        <h3>Enabling refactors</h3>
+        <ul>
+          <li class="todo">Persist history &amp; imports to <code>localStorage</code> <small>(history is currently lost on reload)</small></li>
+          <li class="todo">Decompose the ~650-line <code>App.jsx</code> into a <code>useSettings</code> hook + view components</li>
+        </ul>
+        <h3>Deployment — your owned step</h3>
+        <ul>
+          <li class="todo">Buy a domain <small>(truemargin.app · profitpersale.com · mainemargin.com)</small></li>
+          <li class="todo">Add repo secrets <code>VERCEL_TOKEN</code> / <code>VERCEL_ORG_ID</code> / <code>VERCEL_PROJECT_ID</code></li>
+          <li class="todo">Merge to <code>main</code> (auto-deploys) or run <code>vercel --prod</code></li>
+          <li class="todo">Attach the domain &amp; set <code>ALLOWED_ORIGIN</code> in Vercel</li>
+        </ul>
+        <h3>Validate with real owners</h3>
+        <ul>
+          <li class="todo">Will they upload a sales CSV? Does lock-in kill the switch pitch? Is the rate believable? Price sensitivity?</li>
+        </ul>
+      </section>
+
+      <footer>Generated for the Maine SMB pilot · see <code>STATUS.md</code> and <code>PROCESSORS.md</code> in the repo.</footer>
+    </div>
+  </body>
+</html>

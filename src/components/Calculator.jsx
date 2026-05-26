@@ -1,11 +1,5 @@
 import { useState } from 'react'
-
-const PROCESSORS = [
-  { id: 'stripe', name: 'Stripe', description: '2.9% + $0.30 online' },
-  { id: 'toast', name: 'Toast', description: '2.99% + $0.15 online' },
-  { id: 'square', name: 'Square', description: '3.3% + $0.30 online' },
-  { id: 'clover', name: 'Clover', description: '3.5% + $0.10 online' },
-]
+import { PROCESSOR_LIST } from '../processors'
 
 const MAINE_TAX_PRESETS = [
   { value: '5.5', label: 'General — 5.5%' },
@@ -147,7 +141,7 @@ function Calculator({ onCalculate, loading, defaultTaxRate = '', defaultProcesso
         <div className="form-group">
           <label>Payment Processor</label>
           <div className="radio-group">
-            {PROCESSORS.map((proc) => (
+            {PROCESSOR_LIST.map((proc) => (
               <label key={proc.id} className="radio-label">
                 <input
                   type="radio"

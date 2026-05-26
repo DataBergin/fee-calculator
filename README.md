@@ -84,6 +84,8 @@ CI runs all of the above on every push and pull request.
 
 ## Deploy to Vercel
 
+**Manual (one-time or ad hoc):**
+
 1. `npm i -g vercel`
 2. `vercel` (first run links/creates the project), then `vercel --prod`.
 3. Add your custom domain in the Vercel dashboard (HTTPS is automatic).
@@ -91,6 +93,19 @@ CI runs all of the above on every push and pull request.
    production domain (e.g. `https://yourdomain.com`). The API restricts CORS to
    this origin in production and falls back to `*` only for local dev.
 5. (Optional) Enable **Vercel Web Analytics** from the dashboard.
+
+**Automated (on every push to `main`):** `.github/workflows/deploy.yml` deploys
+to production once you add three repository secrets (Settings → Secrets and
+variables → Actions):
+
+| Secret              | Where to find it                                         |
+| ------------------- | -------------------------------------------------------- |
+| `VERCEL_TOKEN`      | https://vercel.com/account/tokens                        |
+| `VERCEL_ORG_ID`     | `vercel link` → `.vercel/project.json`, or the dashboard |
+| `VERCEL_PROJECT_ID` | `vercel link` → `.vercel/project.json`, or the dashboard |
+
+Until those secrets exist the deploy workflow skips itself, so it never fails.
+Still set `ALLOWED_ORIGIN` and attach the domain in the Vercel dashboard.
 
 ## API
 
