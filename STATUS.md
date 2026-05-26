@@ -3,6 +3,7 @@
 _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 
 ## Snapshot
+
 - **Tests:** 124 passing (67 frontend Vitest + 57 API pytest)
 - **Quality:** ESLint, Prettier, ruff all clean; production build succeeds
 - **CI:** GitHub Actions runs lint + both test suites on every push/PR
@@ -13,6 +14,7 @@ _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 ## Done
 
 ### Original build — MVP → production-ready (Phases 1–6)
+
 - **Phase 1 — Lock correctness:** pytest for the fee math; Vitest + React Testing Library for components; ESLint/Prettier/ruff; GitHub Actions CI.
 - **Phase 2 — Harden API:** `validate_input` with type/sign/range checks returning `400 {error, field, message}`; `/api/health`; structured JSON logs; env-gated CORS (`ALLOWED_ORIGIN` in prod, `*` in dev). Fixed the non-numeric-input → 500 gap.
 - **Phase 3 — Finish features:** settings persisted to `localStorage` (versioned schema); business name flows from settings (removed hardcoded "Jack's Cafe"); real system/light/dark theme; Insights tab built on history; topbar search filters History.
@@ -22,6 +24,7 @@ _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 - **Deploy automation:** `.github/workflows/deploy.yml` deploys to Vercel on merge to `main` once secrets are set (skips gracefully until then).
 
 ### Strategic pivot (this session)
+
 - **Repositioned** from "fee calculator" to **independent profit & fee advisor** — the angle a POS can't offer because it profits from the fees and doesn't know the merchant's costs.
 - **Monetization decided: audit-led** (see below).
 - **Advisor Phase A shipped — CSV import + effective rate:**
@@ -33,6 +36,7 @@ _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 ---
 
 ## Key decisions
+
 - **Positioning:** independent, unbiased advisor; **privacy** (analysis runs in the browser).
 - **Monetization — audit-led:**
   - **Primary:** one-time "Fee Health Check" audit, priced against found savings. Suggested tiers: food truck ~$200, café/retail ~$350, full-service restaurant ~$500.
@@ -46,22 +50,26 @@ _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 ## Next steps
 
 ### Product roadmap
+
 - **Phase B — Savings / switch analysis** (the "$X/yr saved" number that sells the audit). Requires extending the rate model with **monthly software fees + contract length** per processor, or the comparison misleads.
 - **Phase C — Pricing levers:** card minimum, surcharge, cash discount, plan-tier upgrade, with margin impact. Verify current Maine + Visa/Mastercard surcharge rules; advisory only, with disclaimer.
 - **Phase D — Fee Health Report:** one-page exportable/printable summary = the merchant's deliverable and your prospecting artifact.
 
 ### Enabling refactors (from the design review)
+
 - **Persist history (and imports) to `localStorage`** — today history is in-memory and lost on reload, yet Insights depends on it.
 - **Decompose `App.jsx`** (~650 lines) into a `useSettings` hook + view components.
 - Optionally move the fee math into a shared client-side module so the Python endpoint becomes optional.
 
 ### Deployment (your owned step)
+
 1. Buy a domain (options floated: `truemargin.app`, `profitpersale.com`, `mainemargin.com`).
 2. Add repo secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (from `vercel link`).
 3. Merge to `main` (auto-deploys) or run `vercel --prod`.
 4. In Vercel: attach the domain and set `ALLOWED_ORIGIN=https://yourdomain.com`.
 
 ### Validate with real owners (before building more)
+
 - Will they actually export and upload a sales CSV?
 - Does contract/hardware lock-in kill the "switch & save" pitch?
 - Is the effective-rate number believable / surprising?
@@ -70,6 +78,7 @@ _Last updated: 2026-05-26 · Branch: `claude/funny-sagan-By9uT`_
 ---
 
 ## Commit log (this branch)
+
 - `8942518` Add CSV import + effective-rate analysis (advisor Phase A)
 - `ac00c7d` Add Vercel auto-deploy workflow
 - `f06ebe0` Ship prep: landing hero, evaluator README, deploy notes (Phase 6)
