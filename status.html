@@ -23,7 +23,11 @@
       }
       body {
         font-family:
-          'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
         background: var(--bg);
         color: var(--ink);
         line-height: 1.6;
@@ -192,43 +196,97 @@
       </header>
 
       <div class="grid">
-        <div class="stat"><div class="num green">124</div><div class="lbl">Tests passing (67 web + 57 API)</div></div>
-        <div class="stat"><div class="num green">9</div><div class="lbl">Commits on the branch</div></div>
-        <div class="stat"><div class="num">6 + A</div><div class="lbl">Build phases + advisor Phase A</div></div>
-        <div class="stat"><div class="num amber">1</div><div class="lbl">Item left: live deploy (your step)</div></div>
+        <div class="stat">
+          <div class="num green">124</div>
+          <div class="lbl">Tests passing (67 web + 57 API)</div>
+        </div>
+        <div class="stat">
+          <div class="num green">9</div>
+          <div class="lbl">Commits on the branch</div>
+        </div>
+        <div class="stat">
+          <div class="num">6 + A</div>
+          <div class="lbl">Build phases + advisor Phase A</div>
+        </div>
+        <div class="stat">
+          <div class="num amber">1</div>
+          <div class="lbl">Item left: live deploy (your step)</div>
+        </div>
       </div>
 
       <section class="card">
         <h2>✅ Done</h2>
         <h3>Production-readiness (Phases 1–6)</h3>
         <ul>
-          <li class="done">Tested fee math + component tests; ESLint / Prettier / ruff; GitHub Actions CI</li>
-          <li class="done">Hardened API: field validation, structured <code>400</code>s, <code>/api/health</code>, JSON logs, env-gated CORS</li>
-          <li class="done">Settings persistence, business name from settings, real dark mode, Insights, search</li>
-          <li class="done">White-label logo + color, CSV export, onboarding modal, mobile nav, empty/error states</li>
-          <li class="done">Maine polish: Square &amp; Clover (verified rates), tax presets, tip handling</li>
+          <li class="done">
+            Tested fee math + component tests; ESLint / Prettier / ruff; GitHub Actions CI
+          </li>
+          <li class="done">
+            Hardened API: field validation, structured <code>400</code>s, <code>/api/health</code>,
+            JSON logs, env-gated CORS
+          </li>
+          <li class="done">
+            Settings persistence, business name from settings, real dark mode, Insights, search
+          </li>
+          <li class="done">
+            White-label logo + color, CSV export, onboarding modal, mobile nav, empty/error states
+          </li>
+          <li class="done">
+            Maine polish: Square &amp; Clover (verified rates), tax presets, tip handling
+          </li>
           <li class="done">Landing hero, evaluator README, Vercel auto-deploy workflow</li>
         </ul>
         <h3>Strategic pivot (this session)</h3>
         <ul>
-          <li class="done">Repositioned as an <strong>independent fee advisor</strong> (the angle a POS can't offer)</li>
+          <li class="done">
+            Repositioned as an <strong>independent fee advisor</strong> (the angle a POS can't
+            offer)
+          </li>
           <li class="done">Monetization decided: <strong>audit-led</strong></li>
-          <li class="done"><span class="pill">Advisor Phase A</span>CSV import → effective rate, small-ticket drag, ticket histogram — all in-browser, nothing uploaded</li>
-          <li class="done">New tested modules (csvParse, analyze, processors); processor list de-duplicated</li>
+          <li class="done">
+            <span class="pill">Advisor Phase A</span>CSV import → effective rate, small-ticket drag,
+            ticket histogram — all in-browser, nothing uploaded
+          </li>
+          <li class="done">
+            New tested modules (csvParse, analyze, processors); processor list de-duplicated
+          </li>
         </ul>
       </section>
 
       <section class="card">
         <h2>💵 Monetization (audit-led)</h2>
         <table>
-          <tr><th>Model</th><th>Role</th><th>Notes</th></tr>
-          <tr><td>One-time "Fee Health Check" audit</td><td>Primary</td><td>~$200 truck · ~$350 café/retail · ~$500 restaurant</td></tr>
-          <tr><td>Free effective-rate tool</td><td>Lead magnet</td><td>Funnels to the paid audit</td></tr>
-          <tr><td>Monitoring retainer</td><td>Upsell</td><td>Light quarterly re-check</td></tr>
-          <tr><td>White-label to bookkeepers</td><td>Scale (later)</td><td>Higher ACV, longer sales motion</td></tr>
+          <tr>
+            <th>Model</th>
+            <th>Role</th>
+            <th>Notes</th>
+          </tr>
+          <tr>
+            <td>One-time "Fee Health Check" audit</td>
+            <td>Primary</td>
+            <td>~$200 truck · ~$350 café/retail · ~$500 restaurant</td>
+          </tr>
+          <tr>
+            <td>Free effective-rate tool</td>
+            <td>Lead magnet</td>
+            <td>Funnels to the paid audit</td>
+          </tr>
+          <tr>
+            <td>Monitoring retainer</td>
+            <td>Upsell</td>
+            <td>Light quarterly re-check</td>
+          </tr>
+          <tr>
+            <td>White-label to bookkeepers</td>
+            <td>Scale (later)</td>
+            <td>Higher ACV, longer sales motion</td>
+          </tr>
         </table>
         <ul style="margin-top: 0.75rem">
-          <li class="warn">Never take processor referral commissions — it destroys the independence that is the whole moat.</li>
+          <li class="warn">
+            Never take processor referral commissions — it destroys the independence that is the
+            whole moat.
+          </li>
         </ul>
       </section>
 
@@ -236,29 +294,59 @@
         <h2>→ Next steps</h2>
         <h3>Product roadmap</h3>
         <ul>
-          <li class="todo"><strong>Phase B — Savings / switch analysis:</strong> the "$X/yr saved" number that sells the audit. <small>Needs the rate model extended with monthly fees + contract length.</small></li>
-          <li class="todo"><strong>Phase C — Pricing levers:</strong> card minimum, surcharge, cash discount, plan-tier upgrade. <small>Verify Maine + Visa/MC surcharge rules; advisory + disclaimer.</small></li>
-          <li class="todo"><strong>Phase D — Fee Health Report:</strong> one-page exportable summary = client deliverable + prospecting artifact.</li>
+          <li class="todo">
+            <strong>Phase B — Savings / switch analysis:</strong> the "$X/yr saved" number that
+            sells the audit.
+            <small>Needs the rate model extended with monthly fees + contract length.</small>
+          </li>
+          <li class="todo">
+            <strong>Phase C — Pricing levers:</strong> card minimum, surcharge, cash discount,
+            plan-tier upgrade.
+            <small>Verify Maine + Visa/MC surcharge rules; advisory + disclaimer.</small>
+          </li>
+          <li class="todo">
+            <strong>Phase D — Fee Health Report:</strong> one-page exportable summary = client
+            deliverable + prospecting artifact.
+          </li>
         </ul>
         <h3>Enabling refactors</h3>
         <ul>
-          <li class="todo">Persist history &amp; imports to <code>localStorage</code> <small>(history is currently lost on reload)</small></li>
-          <li class="todo">Decompose the ~650-line <code>App.jsx</code> into a <code>useSettings</code> hook + view components</li>
+          <li class="todo">
+            Persist history &amp; imports to <code>localStorage</code>
+            <small>(history is currently lost on reload)</small>
+          </li>
+          <li class="todo">
+            Decompose the ~650-line <code>App.jsx</code> into a <code>useSettings</code> hook + view
+            components
+          </li>
         </ul>
         <h3>Deployment — your owned step</h3>
         <ul>
-          <li class="todo">Buy a domain <small>(truemargin.app · profitpersale.com · mainemargin.com)</small></li>
-          <li class="todo">Add repo secrets <code>VERCEL_TOKEN</code> / <code>VERCEL_ORG_ID</code> / <code>VERCEL_PROJECT_ID</code></li>
-          <li class="todo">Merge to <code>main</code> (auto-deploys) or run <code>vercel --prod</code></li>
+          <li class="todo">
+            Buy a domain <small>(truemargin.app · profitpersale.com · mainemargin.com)</small>
+          </li>
+          <li class="todo">
+            Add repo secrets <code>VERCEL_TOKEN</code> / <code>VERCEL_ORG_ID</code> /
+            <code>VERCEL_PROJECT_ID</code>
+          </li>
+          <li class="todo">
+            Merge to <code>main</code> (auto-deploys) or run <code>vercel --prod</code>
+          </li>
           <li class="todo">Attach the domain &amp; set <code>ALLOWED_ORIGIN</code> in Vercel</li>
         </ul>
         <h3>Validate with real owners</h3>
         <ul>
-          <li class="todo">Will they upload a sales CSV? Does lock-in kill the switch pitch? Is the rate believable? Price sensitivity?</li>
+          <li class="todo">
+            Will they upload a sales CSV? Does lock-in kill the switch pitch? Is the rate
+            believable? Price sensitivity?
+          </li>
         </ul>
       </section>
 
-      <footer>Generated for the Maine SMB pilot · see <code>STATUS.md</code> and <code>PROCESSORS.md</code> in the repo.</footer>
+      <footer>
+        Generated for the Maine SMB pilot · see <code>STATUS.md</code> and
+        <code>PROCESSORS.md</code> in the repo.
+      </footer>
     </div>
   </body>
 </html>
